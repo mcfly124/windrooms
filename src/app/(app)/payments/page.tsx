@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { getEurRate } from "@/lib/currency";
 import PaymentsClient from "./PaymentsClient";
+import { payLinkPath } from "@/lib/booking";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export default async function PaymentsPage() {
         status: p.status,
         note: p.note,
         recordedBy: p.recordedBy?.name ?? null,
+        payLink: p.method === "PAYMENT_LINK" && p.status === "PENDING" ? payLinkPath(p.id) : null,
         createdAt: p.createdAt.toISOString().slice(0, 16).replace("T", " "),
       }))}
     />

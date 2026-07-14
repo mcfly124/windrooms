@@ -102,7 +102,8 @@ model Room {
   nukiLockId String?
   notes      String?
 
-  reservations Reservation[]
+  reservations    Reservation[]
+  publicOverrides PublicOverride[]
 
   @@unique([locationId, name])
 }
@@ -239,6 +240,24 @@ model AuditLog {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// Planner overrides: flip a room-day's public availability away from the
+// release-window default. OPEN exposes a day beyond the window; CLOSED holds
+// a day back for Flyspot clients.
+enum OverrideState {
+  OPEN
+  CLOSED
+}
+
+model PublicOverride {
+  id     Int           @id @default(autoincrement())
+  roomId Int
+  room   Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date   DateTime      @db.Date
+  state  OverrideState
+
+  @@unique([roomId, date])
 }
 
 model Setting {

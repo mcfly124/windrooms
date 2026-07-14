@@ -1,0 +1,368 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { clientBalanceAt, quickBook } from "@/app/actions/quickbook";
+import DatePicker from "@/components/DatePicker";
+import TimeSelect from "@/components/TimeSelect";
+import { addDays, nightsBetween, todayYmd } from "@/lib/dates";
+import type { RoomType } from "@prisma/client";
+
+type ClientOpt = { id: number; name: string; email: string | null };
+type LocOpt = {
+  id: number;
+  name: string;
+  rooms: { id: number; name: string; type: RoomType; pricePln: number | null }[];
+};
+
+export default function QuickBook({ clients, locations }: { clients: ClientOpt[]; locations: LocOpt[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary flex items-center gap-1.5">
+        <span className="text-base leading-none">+</span> Quick booking
+      </button>
+      {open && <QuickBookModal clients={clients} locations={locations} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function ClientPicker({
+  clients,
+  value,
+  onPick,
+  placeholder,
+}: {
+  clients: ClientOpt[];
+  value: ClientOpt | null;
+  onPick: (c: ClientOpt | null) => void;
+  placeholder: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [focus, setFocus] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setFocus(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return clients.slice(0, 8);
+    return clients
+      .filter((c) => c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [clients, query]);
+
+  if (value) {
+    return (
+      <div className="field flex items-center justify-between gap-2">
+        <span className="truncate">{value.name}</span>
+        <button type="button" onClick={() => onPick(null)} className="text-faint hover:text-bad text-xs shrink-0">✕</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        className="field"
+        placeholder={placeholder}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => setFocus(true)}
+      />
+      {focus && matches.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-line bg-card shadow-xl overflow-hidden max-h-56 overflow-y-auto">
+          {matches.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => {
+                onPick(c);
+                setQuery("");
+                setFocus(false);
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-hovr"
+            >
+              <div className="text-sm">{c.name}</div>
+              {c.email && <div className="text-xs text-faint">{c.email}</div>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuickBookModal({
+  clients,
+  locations,
+  onClose,
+}: {
+  clients: ClientOpt[];
+  locations: LocOpt[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const today = todayYmd();
+  const [client, setClient] = useState<ClientOpt | null>(null);
+  const [locationId, setLocationId] = useState(locations[0]?.id ?? 0);
+  const location = locations.find((l) => l.id === locationId);
+  const [roomId, setRoomId] = useState(location?.rooms[0]?.id ?? 0);
+  const [checkIn, setCheckIn] = useState(today);
+  const [checkOut, setCheckOut] = useState(addDays(today, 1));
+  const [checkInTime, setCheckInTime] = useState("15:00");
+  const [checkOutTime, setCheckOutTime] = useState("11:00");
+  const [notes, setNotes] = useState("");
+
+  const [balance, setBalance] = useState<number | null>(null);
+  const [ownCredits, setOwnCredits] = useState(0);
+  const [ownTouched, setOwnTouched] = useState(false);
+  const [donor, setDonor] = useState<ClientOpt | null>(null);
+  const [donorNights, setDonorNights] = useState(0);
+  const [remainderVia, setRemainderVia] = useState<"LINK" | "RECEPTION">("LINK");
+  const [amount, setAmount] = useState("");
+  const [amountTouched, setAmountTouched] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
+  const [payLink, setPayLink] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const nights = nightsBetween(checkIn, checkOut);
+  const room = location?.rooms.find((r) => r.id === roomId);
+  const remaining = Math.max(0, nights - ownCredits - donorNights);
+
+  // Balance lookup whenever client/location changes; default own credits to min(balance, nights)
+  useEffect(() => {
+    let alive = true;
+    setBalance(null);
+    if (!client) {
+      setOwnCredits(0);
+      return;
+    }
+    clientBalanceAt(client.id, locationId).then((b) => {
+      if (!alive) return;
+      setBalance(b);
+      if (!ownTouched) setOwnCredits(Math.max(0, Math.min(b, nights)));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, locationId, nights]);
+
+  // Default link amount from the room's public price
+  useEffect(() => {
+    if (!amountTouched && room?.pricePln) setAmount(remaining > 0 ? String(remaining * room.pricePln) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, roomId]);
+
+  function submit() {
+    if (!client) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await quickBook({
+        clientId: client.id,
+        roomId,
+        checkIn,
+        checkOut,
+        checkInTime,
+        checkOutTime,
+        creditsFromClient: ownCredits,
+        donorClientId: donor?.id ?? null,
+        donorNights,
+        remainderVia: remaining > 0 ? remainderVia : "NONE",
+        remainderAmountPln: amount ? Number(amount) : null,
+        notes,
+      });
+      if (result.ok) {
+        setSavedId(result.id);
+        setPayLink(result.payLink ?? null);
+        router.refresh();
+      } else setError(result.error);
+    });
+  }
+
+  const label = "block label-mono mb-1";
+
+  if (savedId) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="w-full max-w-md rounded-2xl bg-card border border-line shadow-xl p-6 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto w-12 h-12 rounded-full bg-ok-soft text-ok flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+          </div>
+          <h2 className="font-semibold">Booked — reservation #{savedId}</h2>
+          {payLink && (
+            <div className="space-y-2">
+              <p className="text-sm text-mut">Send this payment link to the client:</p>
+              <div className="flex items-center gap-2">
+                <input readOnly className="field font-mono text-xs" value={typeof window !== "undefined" ? window.location.origin + payLink : payLink} />
+                <button
+                  className="btn-ghost text-xs"
+                  onClick={() => navigator.clipboard.writeText(window.location.origin + payLink)}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
+          <button onClick={onClose} className="btn-primary w-full">Done</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-2xl bg-card border border-line shadow-xl p-5 space-y-3 max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-semibold">
+          Quick booking
+          <span className="text-faint font-normal text-sm ml-2">{nights > 0 ? `${nights} night(s)` : ""}</span>
+        </h2>
+
+        <div>
+          <label className={label}>Client</label>
+          <ClientPicker clients={clients} value={client} onPick={setClient} placeholder="Start typing a name or email…" />
+          {client && balance !== null && (
+            <p className="text-xs mt-1 text-mut">
+              Night credits here: <b className={balance > 0 ? "text-ok" : "text-faint"}>{balance}</b>
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={label}>Location</label>
+            <select
+              className="field"
+              value={locationId}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setLocationId(id);
+                setRoomId(locations.find((l) => l.id === id)?.rooms[0]?.id ?? 0);
+              }}
+            >
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={label}>Room</label>
+            <select className="field" value={roomId} onChange={(e) => setRoomId(Number(e.target.value))}>
+              {location?.rooms.map((r) => (
+                <option key={r.id} value={r.id}>{r.name} ({r.type.toLowerCase()})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={label}>Check-in</label>
+            <DatePicker value={checkIn} onChange={(v) => { setCheckIn(v); if (checkOut <= v) setCheckOut(addDays(v, 1)); }} />
+          </div>
+          <div>
+            <label className={label}>Check-out</label>
+            <DatePicker value={checkOut} min={addDays(checkIn, 1)} onChange={setCheckOut} />
+          </div>
+          <div>
+            <label className={label}>Arrival time</label>
+            <TimeSelect value={checkInTime} onChange={setCheckInTime} />
+          </div>
+          <div>
+            <label className={label}>Departure time</label>
+            <TimeSelect value={checkOutTime} onChange={setCheckOutTime} />
+          </div>
+        </div>
+
+        {client && (
+          <div className="rounded-xl bg-hovr p-3 space-y-3">
+            <div className="label-mono">Payment · {nights} night(s) to cover</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={label}>Client&apos;s own credits</label>
+                <input
+                  inputMode="numeric"
+                  className="field"
+                  value={ownCredits}
+                  onChange={(e) => {
+                    setOwnTouched(true);
+                    setOwnCredits(Math.max(0, Math.min(Number(e.target.value) || 0, Math.min(balance ?? 0, nights))));
+                  }}
+                />
+              </div>
+              <div>
+                <label className={label}>Nights from another client</label>
+                <input
+                  inputMode="numeric"
+                  className="field"
+                  value={donorNights}
+                  onChange={(e) => setDonorNights(Math.max(0, Math.min(Number(e.target.value) || 0, nights - ownCredits)))}
+                />
+              </div>
+            </div>
+            {donorNights > 0 && (
+              <div>
+                <label className={label}>Covering client</label>
+                <ClientPicker
+                  clients={clients.filter((c) => c.id !== client.id)}
+                  value={donor}
+                  onPick={setDonor}
+                  placeholder="Whose credits cover these nights?"
+                />
+              </div>
+            )}
+            {remaining > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={label}>Remaining {remaining} night(s) via</label>
+                  <select className="field" value={remainderVia} onChange={(e) => setRemainderVia(e.target.value as "LINK" | "RECEPTION")}>
+                    <option value="LINK">Payment link</option>
+                    <option value="RECEPTION">Pay at reception</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>Amount (PLN)</label>
+                  <input
+                    inputMode="decimal"
+                    className="field font-mono"
+                    value={amount}
+                    onChange={(e) => {
+                      setAmountTouched(true);
+                      setAmount(e.target.value);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-faint">
+              {ownCredits} own + {donorNights} donated + {remaining} {remainderVia === "LINK" ? "via link" : "at reception"} = {nights} night(s)
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label className={label}>Notes</label>
+          <textarea rows={2} className="field" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+
+        {error && <p className="text-sm text-bad">{error}</p>}
+
+        <div className="flex items-center gap-2 pt-1">
+          <button onClick={submit} disabled={pending || !client || nights <= 0} className="btn-primary">
+            {pending ? "…" : "Book"}
+          </button>
+          <button onClick={onClose} className="btn-ghost ml-auto">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -42,7 +42,13 @@ Next.js (App Router, Turbopack) · React 19 · Tailwind v4 · Neon Postgres + Pr
 - UI: light/dark theme via `wr_theme` cookie → `dark` class on `<html>`; design tokens in `globals.css` (`bg-bg`, `bg-card`, `border-line`, `text-ink`, `text-mut`, `text-faint`, `bg-hovr`, accent `bg-acc`/`acc-soft`/`acc-softer`, status `ok`/`warn`/`bad`/`purp` + `-soft`). Never use raw zinc/sky classes. Mono micro-labels via `.label-mono`; shared `.field`, `.btn-primary`, `.btn-ghost`. Sidebar layout in `(app)/layout.tsx` + `SidebarNav.tsx`; pages are thin server components passing serialized props to `*Client.tsx`.
 
 ## Public booking (built, demo payments)
-`/book` (no auth) — Gdańsk only: search dates → available rooms (active + `pricePln` set, no CONFIRMED overlap, whole stay inside `releaseWindowDays`; rules in `src/lib/booking.ts`) → guest details + demo checkout (`src/app/actions/public.ts` creates CONFIRMED PUBLIC reservation + PAID payment marked "DEMO payment") → `/book/confirmed?id&sig` (HMAC `bookingSig`, prevents enumeration). Room prices editable per-room in Locations; `publicDescription` shown on the landing page. Real Stripe replaces the demo checkout later (`PAYMENTS_MODE` = demo|test|live).
+`/book` (no auth) — Gdańsk only: search dates → available rooms (active + `pricePln` set, no CONFIRMED overlap, every night open per `dayOpenToPublic` in `src/lib/booking.ts`: planner override wins, else inside `releaseWindowDays`) → guest details + demo checkout (`src/app/actions/public.ts` creates CONFIRMED PUBLIC reservation + PAID payment marked "DEMO payment") → `/book/confirmed?id&sig` (HMAC `bookingSig`, prevents enumeration). Room prices editable per-room in Locations; `publicDescription` shown on the landing page. Real Stripe replaces the demo checkout later (`PAYMENTS_MODE` = demo|test|live).
+
+## Planner (`/planner`, admins+)
+Per-room-per-day grid of public availability for public-enabled locations. `PublicOverride` rows flip a day away from the window default (OPEN beyond the window / CLOSED inside it); clicking cycles default → override → default (`togglePublicDay`). Booked days shown read-only.
+
+## Quick booking (header button, admins+)
+`QuickBook.tsx` modal + `src/app/actions/quickbook.ts`: client autocomplete, room, dates+times, and night coverage split across the client's own credits (auto-filled from balance), a donor client's credits, and a remainder via payment link or reception. Payment links: `payLinkPath(paymentId)` → `/pay/[id]?sig` (HMAC `payLinkSig`), public demo checkout marks the payment PAID (`payDemoLink`); Payments page shows "copy link" on pending PAYMENT_LINK rows.
 
 ## Stats
 `/stats` (admins+) — occupancy % by location, Flyspot-vs-public room-nights, payments by month (chart.js + react-chartjs-2), tiles incl. credits granted/used and hotel-overflow cost.

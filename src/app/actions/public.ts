@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { nightsBetween, parseYmd } from "@/lib/dates";
-import { bookingSig, stayWithinWindow, validStayDates } from "@/lib/booking";
+import { bookingSig, stayOpenForRoom, validStayDates } from "@/lib/booking";
 
 export type PublicBookingResult =
   | { ok: true; id: number; sig: string }
@@ -34,11 +34,8 @@ export async function createPublicBooking(input: {
     if (!room || !room.active || room.pricePln === null || !room.location.publicBookingEnabled || !room.location.active) {
       return { ok: false, error: "This room is not available for online booking" };
     }
-    if (!stayWithinWindow(input.checkIn, input.checkOut, room.location.releaseWindowDays)) {
-      return {
-        ok: false,
-        error: `Online bookings open ${room.location.releaseWindowDays} days before arrival — please pick closer dates`,
-      };
+    if (!(await stayOpenForRoom(prisma, room.id, input.checkIn, input.checkOut, room.location.releaseWindowDays))) {
+      return { ok: false, error: "Those dates are not open for online booking — please pick closer dates" };
     }
 
     const nights = nightsBetween(input.checkIn, input.checkOut);

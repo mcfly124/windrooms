@@ -16,6 +16,7 @@ type PaymentRow = {
   note: string | null;
   recordedBy: string | null;
   createdAt: string;
+  payLink: string | null;
 };
 
 export default function PaymentsClient({
@@ -67,7 +68,7 @@ export default function PaymentsClient({
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs text-mut mb-1">Client (optional)</label>
-            <select className={input} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
+            <select className="field" value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
               <option value="">—</option>
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -78,7 +79,7 @@ export default function PaymentsClient({
           </div>
           <div>
             <label className="block text-xs text-mut mb-1">Method</label>
-            <select className={input} value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value as PaymentMethod })}>
+            <select className="field" value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value as PaymentMethod })}>
               <option value="CASH">Cash</option>
               <option value="CARD">Card</option>
               <option value="ONLINE">Online</option>
@@ -98,6 +99,10 @@ export default function PaymentsClient({
           </button>
         </div>
         {error && <p className="text-sm text-bad mt-2">{error}</p>}
+        <p className="text-xs text-faint mt-2">
+          “Paid now” = money already received. Untick it to record a pending amount — with method “Payment link” you
+          get a shareable link to send to the customer (demo checkout for now, Stripe later).
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-line">

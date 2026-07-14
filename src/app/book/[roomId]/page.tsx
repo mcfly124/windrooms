@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getEurRate, fmtPln } from "@/lib/currency";
 import { nightsBetween, parseYmd } from "@/lib/dates";
-import { stayWithinWindow, validStayDates } from "@/lib/booking";
+import { stayOpenForRoom, validStayDates } from "@/lib/booking";
 import CheckoutForm from "./CheckoutForm";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function BookRoomPage({
 
   const room = await prisma.room.findUnique({ where: { id: roomId }, include: { location: true } });
   if (!room || !room.active || room.pricePln === null || !room.location.publicBookingEnabled) notFound();
-  if (!stayWithinWindow(checkIn, checkOut, room.location.releaseWindowDays)) redirect("/book");
+  if (!(await stayOpenForRoom(prisma, room.id, checkIn, checkOut, room.location.releaseWindowDays))) redirect("/book");
 
   const conflict = await prisma.reservation.findFirst({
     where: {

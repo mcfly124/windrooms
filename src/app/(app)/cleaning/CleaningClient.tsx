@@ -150,7 +150,7 @@ function ShiftForm({ allStaff }: { allStaff: (Staff & { locationName: string })[
     <div className="flex flex-wrap items-end gap-2">
       <div>
         <label className={label}>Staff</label>
-        <select className={input} value={form.staffId} onChange={(e) => setForm({ ...form, staffId: e.target.value })}>
+        <select className="field" value={form.staffId} onChange={(e) => setForm({ ...form, staffId: e.target.value })}>
           <option value="">—</option>
           {allStaff.map((s) => (
             <option key={s.id} value={s.id}>{s.name} ({s.locationName})</option>

@@ -25,6 +25,9 @@ const ICONS: Record<string, React.ReactNode> = {
   chart: (
     <path d="M3 3v18h18M7 15v3M12 10v8M17 6v12" />
   ),
+  layers: (
+    <path d="m12 2 10 6-10 6L2 8l10-6zM2 14l10 6 10-6" />
+  ),
   pin: (
     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
   ),

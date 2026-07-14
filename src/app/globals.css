@@ -115,6 +115,12 @@ select.field {
   background-position: right 0.6rem center;
 }
 
+input[type="checkbox"] {
+  accent-color: var(--acc);
+  width: 15px;
+  height: 15px;
+}
+
 .btn-primary {
   border-radius: 0.5rem;
   background: var(--acc);

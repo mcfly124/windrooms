@@ -41,17 +41,19 @@ export default async function PublicBookingPage({
         <p className="text-center text-mut">Online booking is not open at the moment — please check back soon.</p>
       ) : dateError ? (
         <p className="text-center text-bad text-sm">{dateError}</p>
-      ) : result && !result.windowOk ? (
-        <div className="text-center space-y-1">
-          <p className="text-mut">
-            Online bookings open <b className="text-ink">{location!.releaseWindowDays} days</b> before arrival.
-          </p>
-          <p className="text-sm text-faint">
-            Your dates are further out — try dates up to {addDays(today, location!.releaseWindowDays)}.
-          </p>
-        </div>
       ) : result && result.rooms.length === 0 ? (
-        <p className="text-center text-mut">No rooms free for those dates — try shifting by a day or two.</p>
+        result.anyBlockedByWindow ? (
+          <div className="text-center space-y-1">
+            <p className="text-mut">
+              Online bookings open <b className="text-ink">{location!.releaseWindowDays} days</b> before arrival.
+            </p>
+            <p className="text-sm text-faint">
+              Your dates are further out — try dates up to {addDays(today, location!.releaseWindowDays)}.
+            </p>
+          </div>
+        ) : (
+          <p className="text-center text-mut">No rooms free for those dates — try shifting by a day or two.</p>
+        )
       ) : result ? (
         <section className="space-y-3">
           <div className="label-mono">

@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getSession, atLeast } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { normalizeLang, t } from "@/lib/i18n";
 import HeaderControls from "./HeaderControls";
 import SidebarNav from "./SidebarNav";
+import QuickBook from "./QuickBook";
 import { stopImpersonationAction } from "@/app/actions/session";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     },
   ];
   if (atLeast(user.role, "ADMIN")) {
+    sections[0].items.splice(2, 0, { href: "/planner", label: "Planner", icon: "layers" });
     sections.push({
       label: "Insights",
       items: [{ href: "/stats", label: "Statistics", icon: "chart" }],
@@ -45,6 +48,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ],
     });
   }
+
+  const canBook = atLeast(user.role, "ADMIN");
+  const [qbClients, qbLocations] = canBook
+    ? await Promise.all([
+        prisma.client.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, email: true } }),
+        prisma.location.findMany({
+          where: { active: true },
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            name: true,
+            rooms: {
+              where: { active: true },
+              orderBy: { name: "asc" },
+              select: { id: true, name: true, type: true, pricePln: true },
+            },
+          },
+        }),
+      ])
+    : [[], []];
 
   const now = new Date();
   const week = Math.ceil(
@@ -106,6 +129,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="h-16 border-b border-line bg-card flex items-center gap-4 px-6 sticky top-0 z-40">
           <span className="label-mono">{dateLine}</span>
           <div className="ml-auto flex items-center gap-2">
+            {canBook && (
+              <QuickBook
+                clients={qbClients}
+                locations={qbLocations.map((l) => ({
+                  id: l.id,
+                  name: l.name,
+                  rooms: l.rooms.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    type: r.type,
+                    pricePln: r.pricePln ? Number(r.pricePln) : null,
+                  })),
+                }))}
+              />
+            )}
             <HeaderControls lang={lang} showEur={showEur} dark={dark} />
           </div>
         </header>
