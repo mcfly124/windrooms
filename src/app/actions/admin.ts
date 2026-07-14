@@ -78,6 +78,28 @@ export async function saveRoom(input: {
   }
 }
 
+export async function deleteRoom(id: number): Promise<ActionResult> {
+  try {
+    const session = await requireRole("SUPERADMIN");
+    const room = await prisma.room.findUnique({ where: { id } });
+    if (!room) return { ok: false, error: "Room not found" };
+    const reservations = await prisma.reservation.count({ where: { roomId: id } });
+    if (reservations > 0) {
+      return {
+        ok: false,
+        error: `Room ${room.name} has ${reservations} reservation(s) — deactivate it instead so the history stays intact`,
+      };
+    }
+    await prisma.room.delete({ where: { id } }); // planner overrides cascade
+    await audit(session, "room.delete", "Room", id, room.name);
+    revalidatePath("/locations");
+    revalidatePath("/calendar");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
+  }
+}
+
 // ---- users (superadmin) ----
 
 export async function saveUser(input: {

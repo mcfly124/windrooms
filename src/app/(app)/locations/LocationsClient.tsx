@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveLocation, saveRoom } from "@/app/actions/admin";
+import { saveLocation, saveRoom, deleteRoom } from "@/app/actions/admin";
 import type { RoomType } from "@prisma/client";
 
 type Loc = {
@@ -150,7 +150,18 @@ function RoomsEditor({ locationId, rooms }: { locationId: number; rooms: Loc["ro
 function RoomRow({ locationId, room }: { locationId: number; room: Loc["rooms"][number] }) {
   const router = useRouter();
   const [price, setPrice] = useState(room.pricePln !== null ? String(room.pricePln) : "");
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  function remove() {
+    if (!confirm(`Delete room ${room.name}? Only possible if it has no reservations.`)) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteRoom(room.id);
+      if (!result.ok) setError(result.error);
+      router.refresh();
+    });
+  }
 
   function save(next: { active?: boolean }) {
     startTransition(async () => {
@@ -167,7 +178,7 @@ function RoomRow({ locationId, room }: { locationId: number; room: Loc["rooms"][
   }
 
   return (
-    <div className={`flex items-center gap-2 rounded-lg border border-line px-2 py-1.5 ${room.active ? "" : "opacity-50"}`}>
+    <div className={`flex items-center flex-wrap gap-2 rounded-lg border border-line px-2 py-1.5 ${room.active ? "" : "opacity-50"}`}>
       <span className={`text-sm font-medium ${room.active ? "" : "line-through"}`}>{room.name}</span>
       <span className="text-faint text-xs">{room.type === "DOUBLE" ? "dbl" : "sgl"}</span>
       <input
@@ -183,10 +194,19 @@ function RoomRow({ locationId, room }: { locationId: number; room: Loc["rooms"][
         onClick={() => save({ active: !room.active })}
         disabled={pending}
         className="text-xs text-faint hover:text-ink"
-        title={room.active ? "Deactivate" : "Activate"}
+        title={room.active ? "Deactivate (hidden but history kept)" : "Activate"}
       >
         {room.active ? "on" : "off"}
       </button>
+      <button
+        onClick={remove}
+        disabled={pending}
+        className="text-xs text-faint hover:text-bad"
+        title="Delete room (only if it has no reservations)"
+      >
+        ✕
+      </button>
+      {error && <span className="text-[10px] text-bad w-full">{error}</span>}
     </div>
   );
 }
