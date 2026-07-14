@@ -195,6 +195,7 @@ function QuickBookModal({
 
   const [error, setError] = useState<string | null>(null);
   const [payLink, setPayLink] = useState<string | null>(null);
+  const [emailNote, setEmailNote] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -264,6 +265,7 @@ function QuickBookModal({
       if (result.ok) {
         setSavedId(result.id);
         setPayLink(result.payLink ?? null);
+        setEmailNote(result.emailNote ?? null);
         router.refresh();
       } else setError(result.error);
     });
@@ -281,7 +283,12 @@ function QuickBookModal({
           <h2 className="font-semibold">Booked — reservation #{savedId}</h2>
           {payLink && (
             <div className="space-y-2">
-              <p className="text-sm text-mut">Send this payment link to the client:</p>
+              {emailNote && (
+                <p className={`text-sm rounded-lg px-3 py-2 ${emailNote.includes("failed") || emailNote.includes("no email") ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok"}`}>
+                  {emailNote}
+                </p>
+              )}
+              <p className="text-sm text-mut">Payment link:</p>
               <div className="flex items-center gap-2">
                 <input readOnly className="field font-mono text-xs" value={typeof window !== "undefined" ? window.location.origin + payLink : payLink} />
                 <button

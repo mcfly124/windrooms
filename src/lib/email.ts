@@ -137,3 +137,19 @@ export function userInviteEmail(u: {
     `),
   };
 }
+
+export function paymentLinkEmail(p: {
+  name: string;
+  amountLabel: string;
+  payUrl: string;
+  note?: string | null;
+}): { subject: string; html: string } {
+  return {
+    subject: `Payment request ${p.amountLabel} — Flyspot Rooms`,
+    html: wrap(`
+      <h2 style="font-size:18px;margin:0 0 6px">Hi ${p.name},</h2>
+      <p style="font-size:14px;color:#64748b">There's a payment of <b>${p.amountLabel}</b> waiting for you${p.note ? ` — ${p.note}` : ""}.</p>
+      <a href="${p.payUrl}" style="display:block;background:#2563eb;color:#fff;text-decoration:none;text-align:center;border-radius:10px;padding:12px;font-size:14px;font-weight:600;margin-top:18px">Pay ${p.amountLabel}</a>
+    `),
+  };
+}
