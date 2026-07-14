@@ -23,7 +23,8 @@ export default function QuickBook({ clients, locations }: { clients: ClientOpt[]
   return (
     <>
       <button onClick={() => setOpen(true)} className="btn-primary flex items-center gap-1.5">
-        <span className="text-base leading-none">+</span> Quick booking
+        <span className="text-base leading-none">+</span>
+        <span className="hidden sm:inline">Quick booking</span>
       </button>
       {open && <QuickBookModal clients={clients} locations={locations} onClose={() => setOpen(false)} />}
     </>

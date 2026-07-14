@@ -65,7 +65,7 @@ export default function StatsClient({
       <h1 className="text-xl font-semibold">Statistics</h1>
 
       {/* Tiles */}
-      <div className="rounded-2xl border border-line bg-card grid grid-cols-2 lg:grid-cols-5 divide-x divide-line overflow-hidden">
+      <div className="rounded-2xl border border-line bg-line grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px overflow-hidden">
         <Tile label="Occupancy this month" value={`${tiles.occupancyNow}%`} sub="confirmed room-nights" />
         <Tile
           label="Revenue this month"
@@ -157,7 +157,7 @@ export default function StatsClient({
 
 function Tile({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="p-5">
+    <div className="bg-card p-4 lg:p-5">
       <div className="label-mono mb-2">{label}</div>
       <div className="text-2xl font-semibold font-mono">{value}</div>
       <div className="text-xs text-mut mt-1">{sub}</div>

@@ -141,7 +141,7 @@ export default function CalendarClient(props: {
           This location has no rooms yet{props.canEdit ? " — add them under Locations." : "."}
         </p>
       ) : props.view === "month" ? (
-        <div className="flex gap-4 items-start">
+        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start">
           <div className="flex-1 min-w-0">
             <MonthGrid
               days={days}
@@ -232,7 +232,8 @@ function MonthGrid({
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
   return (
-    <div className="rounded-2xl border border-line bg-card overflow-hidden">
+    <div className="rounded-2xl border border-line bg-card overflow-x-auto">
+      <div className="min-w-[640px]">
       <div className="grid grid-cols-7 border-b border-line">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
           <div key={d} className="label-mono px-3 py-2.5">{d}</div>
@@ -284,6 +285,7 @@ function MonthGrid({
           })}
         </div>
       ))}
+      </div>
     </div>
   );
 }
@@ -749,7 +751,7 @@ function DayPanel({
   });
 
   return (
-    <aside className="w-72 shrink-0 rounded-2xl border border-line bg-card p-4 space-y-3 sticky top-20">
+    <aside className="w-full lg:w-72 shrink-0 rounded-2xl border border-line bg-card p-4 space-y-3 lg:sticky lg:top-20">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="label-mono">{day}</div>

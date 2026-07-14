@@ -53,7 +53,12 @@ export default function HeaderControls({
         )}
       </button>
       <form action={logoutAction}>
-        <button className={chip}>Log out</button>
+        <button className={chip} title="Log out">
+          <span className="hidden sm:inline">Log out</span>
+          <svg viewBox="0 0 24 24" className="w-4 h-4 sm:hidden" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          </svg>
+        </button>
       </form>
     </div>
   );

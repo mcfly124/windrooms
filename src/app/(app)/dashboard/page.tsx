@@ -58,13 +58,13 @@ export default async function DashboardPage() {
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
       {/* Stat tiles */}
-      <div className="rounded-2xl border border-line bg-card grid grid-cols-2 lg:grid-cols-4 divide-x divide-line overflow-hidden">
+      <div className="rounded-2xl border border-line bg-line grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden">
         {locations.map((loc) => {
           const total = loc.rooms.length;
           const occupied = loc.rooms.filter((r) => r.reservations.length > 0).length;
           const pct = total > 0 ? Math.round((occupied / total) * 100) : null;
           return (
-            <div key={loc.id} className="p-5">
+            <div key={loc.id} className="bg-card p-4 lg:p-5">
               <div className="label-mono mb-2">{loc.name}</div>
               <div className="text-3xl font-semibold">
                 {total === 0 ? <span className="text-faint text-base">no rooms</span> : `${occupied}/${total}`}
