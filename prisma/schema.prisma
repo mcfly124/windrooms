@@ -79,6 +79,8 @@ model Location {
   // Days before check-in when unreserved rooms open to the public (0 = always open)
   releaseWindowDays    Int     @default(14)
   buildingDoorInfo     String?
+  // Shown on the public booking page for this location
+  publicDescription    String?
   hotelPartnerInfo     String?
   notes                String?
 
@@ -95,6 +97,8 @@ model Room {
   name       String
   type       RoomType
   active     Boolean  @default(true)
+  // Nightly price for public (non-Flyspot) bookings; null = not publicly bookable
+  pricePln   Decimal? @db.Decimal(10, 2)
   nukiLockId String?
   notes      String?
 
@@ -153,6 +157,9 @@ model Reservation {
 
   checkIn  DateTime @db.Date
   checkOut DateTime @db.Date
+  // 24h "HH:MM" — arrival/departure times, defaults 15:00 / 11:00
+  checkInTime  String @default("15:00")
+  checkOutTime String @default("11:00")
 
   status ReservationStatus @default(CONFIRMED)
   source ReservationSource @default(FLYSPOT)

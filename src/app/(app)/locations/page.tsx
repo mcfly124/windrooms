@@ -24,8 +24,9 @@ export default async function LocationsPage() {
         publicBookingEnabled: l.publicBookingEnabled,
         releaseWindowDays: l.releaseWindowDays,
         hotelPartnerInfo: l.hotelPartnerInfo,
+        publicDescription: l.publicDescription,
         notes: l.notes,
-        rooms: l.rooms.map((r) => ({ id: r.id, name: r.name, type: r.type, active: r.active })),
+        rooms: l.rooms.map((r) => ({ id: r.id, name: r.name, type: r.type, active: r.active, pricePln: r.pricePln ? Number(r.pricePln) : null })),
       }))}
     />
   );

@@ -9,25 +9,52 @@ import type { ActionResult } from "./reservations";
 export async function saveClient(input: {
   id?: number;
   name: string;
-  email?: string;
+  email: string;
   phone?: string;
   country?: string;
   notes?: string;
+  // Optional credit grant applied together with the save (used by the client modal)
+  credit?: { nights: number; scopeLocationId: number | null; note?: string } | null;
 }): Promise<ActionResult> {
   try {
     const session = await requireRole("ADMIN", "SUPERADMIN");
     if (!input.name.trim()) return { ok: false, error: "Name is required" };
+    const email = input.email.trim().toLowerCase();
+    // Email is mandatory: door codes and confirmations will be emailed later
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return { ok: false, error: "A valid email is required" };
+    }
+    if (input.credit && (!Number.isInteger(input.credit.nights) || input.credit.nights === 0)) {
+      return { ok: false, error: "Credit nights must be a non-zero whole number" };
+    }
     const data = {
       name: input.name.trim(),
-      email: input.email?.trim() || null,
+      email,
       phone: input.phone?.trim() || null,
       country: input.country?.trim() || null,
       notes: input.notes?.trim() || null,
     };
-    const client = input.id
-      ? await prisma.client.update({ where: { id: input.id }, data })
-      : await prisma.client.create({ data });
+    const client = await prisma.$transaction(async (tx) => {
+      const c = input.id
+        ? await tx.client.update({ where: { id: input.id }, data })
+        : await tx.client.create({ data });
+      if (input.credit) {
+        await tx.creditEntry.create({
+          data: {
+            clientId: c.id,
+            nights: input.credit.nights,
+            scopeLocationId: input.credit.scopeLocationId,
+            note: input.credit.note?.trim() || null,
+            createdById: session.user.id,
+          },
+        });
+      }
+      return c;
+    });
     await audit(session, input.id ? "client.update" : "client.create", "Client", client.id, data.name);
+    if (input.credit) {
+      await audit(session, "credits.grant", "Client", client.id, `${input.credit.nights > 0 ? "+" : ""}${input.credit.nights} nights`);
+    }
     revalidatePath("/clients");
     return { ok: true, id: client.id };
   } catch (e) {

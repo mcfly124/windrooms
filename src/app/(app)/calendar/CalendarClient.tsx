@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveReservation, cancelReservation, type ReservationInput } from "@/app/actions/reservations";
 import { addDays, eachDay, nightsBetween, todayYmd } from "@/lib/dates";
+import DatePicker from "@/components/DatePicker";
+import TimeSelect from "@/components/TimeSelect";
 import type { CompanionPayment, ReservationSource, ReservationStatus, RoomType } from "@prisma/client";
 
 type Loc = { id: number; name: string; slug: string };
@@ -19,6 +21,8 @@ type Res = {
   guestPhone: string | null;
   checkIn: string;
   checkOut: string;
+  checkInTime: string;
+  checkOutTime: string;
   status: ReservationStatus;
   source: ReservationSource;
   usesCredits: boolean;
@@ -380,6 +384,8 @@ function ReservationModal({
     guestPhone: initial.guestPhone ?? "",
     checkIn: initial.checkIn ?? todayYmd(),
     checkOut: initial.checkOut ?? addDays(todayYmd(), 1),
+    checkInTime: initial.checkInTime ?? "15:00",
+    checkOutTime: initial.checkOutTime ?? "11:00",
     status: (initial.status ?? "CONFIRMED") as ReservationStatus,
     usesCredits: initial.usesCredits ?? true,
     companionCount: initial.companionCount ?? 0,
@@ -403,6 +409,8 @@ function ReservationModal({
       guestPhone: form.guestPhone,
       checkIn: form.checkIn,
       checkOut: form.checkOut,
+      checkInTime: form.checkInTime,
+      checkOutTime: form.checkOutTime,
       status: form.status,
       source: isFlyspot ? "FLYSPOT" : "PUBLIC",
       usesCredits: isFlyspot && form.usesCredits,
@@ -460,11 +468,25 @@ function ReservationModal({
           </div>
           <div>
             <label className={label}>Check-in</label>
-            <input disabled={!canEdit} type="date" className="field" value={form.checkIn} onChange={(e) => setForm({ ...form, checkIn: e.target.value })} />
+            <DatePicker
+              disabled={!canEdit}
+              value={form.checkIn}
+              onChange={(v) =>
+                setForm({ ...form, checkIn: v, checkOut: form.checkOut <= v ? addDays(v, 1) : form.checkOut })
+              }
+            />
           </div>
           <div>
             <label className={label}>Check-out</label>
-            <input disabled={!canEdit} type="date" className="field" value={form.checkOut} onChange={(e) => setForm({ ...form, checkOut: e.target.value })} />
+            <DatePicker disabled={!canEdit} value={form.checkOut} min={addDays(form.checkIn, 1)} onChange={(v) => setForm({ ...form, checkOut: v })} />
+          </div>
+          <div>
+            <label className={label}>Arrival time</label>
+            <TimeSelect disabled={!canEdit} value={form.checkInTime} onChange={(v) => setForm({ ...form, checkInTime: v })} />
+          </div>
+          <div>
+            <label className={label}>Departure time</label>
+            <TimeSelect disabled={!canEdit} value={form.checkOutTime} onChange={(v) => setForm({ ...form, checkOutTime: v })} />
           </div>
         </div>
 

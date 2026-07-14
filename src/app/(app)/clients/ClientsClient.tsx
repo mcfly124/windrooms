@@ -24,7 +24,6 @@ export default function ClientsClient({
   canEdit: boolean;
   locations: { id: number; name: string }[];
 }) {
-  void locations;
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Partial<ClientRow> | null>(null);
@@ -92,6 +91,7 @@ export default function ClientsClient({
       {editing && (
         <ClientModal
           initial={editing}
+          locations={locations}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -105,10 +105,12 @@ export default function ClientsClient({
 
 function ClientModal({
   initial,
+  locations,
   onClose,
   onSaved,
 }: {
   initial: Partial<ClientRow>;
+  locations: { id: number; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -119,14 +121,24 @@ function ClientModal({
     country: initial.country ?? "",
     notes: initial.notes ?? "",
   });
+  const [credit, setCredit] = useState({ nights: "", scope: "", note: "" });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const input = "w-full rounded-lg bg-hovr border border-line px-2.5 py-1.5 text-sm text-ink outline-none focus:border-acc";
   const label = "block text-xs text-mut mb-1";
 
   function submit() {
+    setError(null);
+    const nights = Number(credit.nights);
     startTransition(async () => {
-      const result = await saveClient({ id: initial.id, ...form });
+      const result = await saveClient({
+        id: initial.id,
+        ...form,
+        credit:
+          credit.nights.trim() && nights !== 0
+            ? { nights, scopeLocationId: credit.scope ? Number(credit.scope) : null, note: credit.note }
+            : null,
+      });
       if (result.ok) onSaved();
       else setError(result.error);
     });
@@ -138,14 +150,36 @@ function ClientModal({
         <h2 className="text-ink font-semibold">{initial.id ? "Edit client" : "New client"}</h2>
         <div><label className={label}>Name *</label><input className={input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
         <div className="grid grid-cols-2 gap-3">
-          <div><label className={label}>Email</label><input className={input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+          <div><label className={label}>Email * (used for door codes & confirmations)</label><input type="email" className={input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
           <div><label className={label}>Phone</label><input className={input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
         </div>
         <div><label className={label}>Country</label><input className={input} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
         <div><label className={label}>Notes</label><textarea rows={2} className={input} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+        <div className="rounded-xl bg-hovr p-3 space-y-2">
+          <div className="label-mono">{initial.id ? "Add night credits (optional)" : "Initial night credits (optional)"}</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className={label}>Nights</label>
+              <input inputMode="numeric" placeholder="e.g. 10" className={input} value={credit.nights} onChange={(e) => setCredit({ ...credit, nights: e.target.value })} />
+            </div>
+            <div>
+              <label className={label}>Valid at</label>
+              <select className="field" value={credit.scope} onChange={(e) => setCredit({ ...credit, scope: e.target.value })}>
+                <option value="">All locations</option>
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label}>Note</label>
+              <input placeholder="10H package" className={input} value={credit.note} onChange={(e) => setCredit({ ...credit, note: e.target.value })} />
+            </div>
+          </div>
+        </div>
         {error && <p className="text-sm text-bad">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <button onClick={submit} disabled={pending} className="rounded-lg bg-acc hover:bg-acc-strong disabled:opacity-50 text-white px-4 py-2 text-sm font-medium">Save</button>
+          <button onClick={submit} disabled={pending || !form.name.trim() || !form.email.trim()} className="rounded-lg bg-acc hover:bg-acc-strong disabled:opacity-50 text-white px-4 py-2 text-sm font-medium">Save</button>
           <button onClick={onClose} className="ml-auto rounded-lg bg-hovr hover:bg-hovr text-mut px-4 py-2 text-sm">Close</button>
         </div>
       </div>

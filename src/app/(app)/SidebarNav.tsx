@@ -22,6 +22,9 @@ const ICONS: Record<string, React.ReactNode> = {
   list: (
     <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
   ),
+  chart: (
+    <path d="M3 3v18h18M7 15v3M12 10v8M17 6v12" />
+  ),
   pin: (
     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
   ),

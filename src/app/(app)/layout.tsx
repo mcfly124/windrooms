@@ -28,6 +28,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ];
   if (atLeast(user.role, "ADMIN")) {
     sections.push({
+      label: "Insights",
+      items: [{ href: "/stats", label: "Statistics", icon: "chart" }],
+    });
+    sections.push({
       label: "Admin",
       items: [
         { href: "/cleaning", label: t(lang, "cleaning"), icon: "spark" },

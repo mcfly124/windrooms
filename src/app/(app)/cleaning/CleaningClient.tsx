@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveCleaningStaff, saveCleaningShift, deleteCleaningShift } from "@/app/actions/admin";
+import DatePicker from "@/components/DatePicker";
+import TimeSelect from "@/components/TimeSelect";
 
 type Staff = { id: number; name: string; phone: string | null; active: boolean };
 type Shift = { id: number; date: string; startTime: string; endTime: string; note: string | null; staffName: string; locationName: string };
@@ -155,9 +157,9 @@ function ShiftForm({ allStaff }: { allStaff: (Staff & { locationName: string })[
           ))}
         </select>
       </div>
-      <div><label className={label}>Date</label><input type="date" className={input} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
-      <div><label className={label}>From</label><input type="time" className={input} value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} /></div>
-      <div><label className={label}>To</label><input type="time" className={input} value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} /></div>
+      <div className="w-36"><label className={label}>Date</label><DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>
+      <div><label className={label}>From</label><TimeSelect value={form.startTime} onChange={(v) => setForm({ ...form, startTime: v })} /></div>
+      <div><label className={label}>To</label><TimeSelect value={form.endTime} onChange={(v) => setForm({ ...form, endTime: v })} /></div>
       <button onClick={add} disabled={pending || !form.staffId || !form.date} className="rounded-lg bg-acc hover:bg-acc-strong disabled:opacity-50 text-white px-3 py-1.5 text-sm">
         Plan
       </button>

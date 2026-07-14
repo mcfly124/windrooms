@@ -87,6 +87,8 @@ export default async function CalendarPage({
         guestPhone: r.guestPhone,
         checkIn: ymd(r.checkIn),
         checkOut: ymd(r.checkOut),
+        checkInTime: r.checkInTime,
+        checkOutTime: r.checkOutTime,
         status: r.status,
         source: r.source,
         usesCredits: r.usesCredits,

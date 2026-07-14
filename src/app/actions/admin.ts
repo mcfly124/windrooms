@@ -17,6 +17,7 @@ export async function saveLocation(input: {
   publicBookingEnabled: boolean;
   releaseWindowDays: number;
   hotelPartnerInfo?: string;
+  publicDescription?: string;
   notes?: string;
 }): Promise<ActionResult> {
   try {
@@ -28,6 +29,7 @@ export async function saveLocation(input: {
       publicBookingEnabled: input.publicBookingEnabled,
       releaseWindowDays: Math.max(0, Math.floor(input.releaseWindowDays)),
       hotelPartnerInfo: input.hotelPartnerInfo?.trim() || null,
+      publicDescription: input.publicDescription?.trim() || null,
       notes: input.notes?.trim() || null,
     };
     if (!data.name || !data.slug) return { ok: false, error: "Name and slug are required" };
@@ -48,6 +50,7 @@ export async function saveRoom(input: {
   name: string;
   type: RoomType;
   active: boolean;
+  pricePln?: number | null;
   notes?: string;
 }): Promise<ActionResult> {
   try {
@@ -58,6 +61,7 @@ export async function saveRoom(input: {
       name: input.name.trim(),
       type: input.type,
       active: input.active,
+      pricePln: input.pricePln ?? null,
       notes: input.notes?.trim() || null,
     };
     const room = input.id

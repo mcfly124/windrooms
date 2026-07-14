@@ -17,6 +17,8 @@ export type ReservationInput = {
   guestPhone?: string;
   checkIn: string; // YYYY-MM-DD
   checkOut: string; // YYYY-MM-DD
+  checkInTime?: string; // "HH:MM" 24h, default 15:00
+  checkOutTime?: string; // "HH:MM" 24h, default 11:00
   status: ReservationStatus;
   source?: ReservationSource;
   usesCredits: boolean;
@@ -42,6 +44,13 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
     }
     if (input.usesCredits && !input.clientId) {
       return { ok: false, error: "Credits can only be used by a Flyspot client" };
+    }
+
+    const timeOk = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+    const checkInTime = input.checkInTime ?? "15:00";
+    const checkOutTime = input.checkOutTime ?? "11:00";
+    if (!timeOk(checkInTime) || !timeOk(checkOutTime)) {
+      return { ok: false, error: "Times must be HH:MM (24h)" };
     }
 
     const room = await prisma.room.findUnique({ where: { id: input.roomId } });
@@ -74,6 +83,8 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
         guestPhone: input.guestPhone?.trim() || null,
         checkIn: parseYmd(input.checkIn),
         checkOut: parseYmd(input.checkOut),
+        checkInTime,
+        checkOutTime,
         status: input.status,
         source: input.source ?? "FLYSPOT",
         usesCredits: input.usesCredits,

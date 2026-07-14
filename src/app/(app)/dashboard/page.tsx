@@ -81,13 +81,13 @@ export default async function DashboardPage() {
         <Card index="01" title={`${t(lang, "arrivals_today")} · ${arrivals.length}`}>
           {arrivals.length === 0 && <Empty text="No arrivals today" />}
           {arrivals.map((r) => (
-            <Row key={r.id} main={who(r)} sub={`${r.room.location.name} · ${r.room.name}`} />
+            <Row key={r.id} main={who(r)} sub={`${r.room.location.name} · ${r.room.name} · from ${r.checkInTime}`} />
           ))}
         </Card>
         <Card index="02" title={`${t(lang, "departures_today")} · ${departures.length}`}>
           {departures.length === 0 && <Empty text="No departures today" />}
           {departures.map((r) => (
-            <Row key={r.id} main={who(r)} sub={`${r.room.location.name} · ${r.room.name}`} />
+            <Row key={r.id} main={who(r)} sub={`${r.room.location.name} · ${r.room.name} · by ${r.checkOutTime}`} />
           ))}
         </Card>
         <Card index="03" title={`${t(lang, "standby_due")} · ${standby.length}`} accent={standby.length > 0}>

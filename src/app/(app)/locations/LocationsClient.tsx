@@ -13,8 +13,9 @@ type Loc = {
   publicBookingEnabled: boolean;
   releaseWindowDays: number;
   hotelPartnerInfo: string | null;
+  publicDescription: string | null;
   notes: string | null;
-  rooms: { id: number; name: string; type: RoomType; active: boolean }[];
+  rooms: { id: number; name: string; type: RoomType; active: boolean; pricePln: number | null }[];
 };
 
 const input = "rounded-lg bg-hovr border border-line px-2.5 py-1.5 text-sm text-ink outline-none focus:border-acc";
@@ -32,7 +33,7 @@ export default function LocationsClient({ locations }: { locations: Loc[] }) {
       </div>
       {adding && (
         <LocationCard
-          loc={{ id: 0, name: "", slug: "", active: true, publicBookingEnabled: false, releaseWindowDays: 14, hotelPartnerInfo: null, notes: null, rooms: [] }}
+          loc={{ id: 0, name: "", slug: "", active: true, publicBookingEnabled: false, releaseWindowDays: 14, hotelPartnerInfo: null, publicDescription: null, notes: null, rooms: [] }}
           isNew
           onDone={() => setAdding(false)}
         />
@@ -53,6 +54,7 @@ function LocationCard({ loc, isNew, onDone }: { loc: Loc; isNew?: boolean; onDon
     publicBookingEnabled: loc.publicBookingEnabled,
     releaseWindowDays: loc.releaseWindowDays,
     hotelPartnerInfo: loc.hotelPartnerInfo ?? "",
+    publicDescription: loc.publicDescription ?? "",
     notes: loc.notes ?? "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +96,12 @@ function LocationCard({ loc, isNew, onDone }: { loc: Loc; isNew?: boolean; onDon
         <div><label className={label}>Partner hotel info</label><input className={`${input} w-full`} value={form.hotelPartnerInfo} onChange={(e) => setForm({ ...form, hotelPartnerInfo: e.target.value })} /></div>
         <div><label className={label}>Notes</label><input className={`${input} w-full`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
       </div>
+      {form.publicBookingEnabled && (
+        <div>
+          <label className={label}>Public page description (shown to guests on the booking site)</label>
+          <textarea rows={2} className={`${input} w-full`} value={form.publicDescription} onChange={(e) => setForm({ ...form, publicDescription: e.target.value })} />
+        </div>
+      )}
       {error && <p className="text-sm text-bad">{error}</p>}
       {!isNew && <RoomsEditor locationId={loc.id} rooms={loc.rooms} />}
     </div>
@@ -118,41 +126,67 @@ function RoomsEditor({ locationId, rooms }: { locationId: number; rooms: Loc["ro
     });
   }
 
-  function toggle(room: Loc["rooms"][number]) {
+  return (
+    <div className="border-t border-line pt-3 space-y-2">
+      <div className="label-mono">Rooms · price per night for public guests (empty = not publicly bookable)</div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {rooms.map((r) => (
+          <RoomRow key={r.id} locationId={locationId} room={r} />
+        ))}
+        <div className="flex items-center gap-2 rounded-lg border border-dashed border-line px-2 py-1.5">
+          <input placeholder="New room" className={`${input} w-24`} value={name} onChange={(e) => setName(e.target.value)} />
+          <select className={`field w-auto`} value={type} onChange={(e) => setType(e.target.value as RoomType)}>
+            <option value="SINGLE">Single</option>
+            <option value="DOUBLE">Double</option>
+          </select>
+          <button onClick={add} disabled={pending || !name.trim()} className="btn-ghost text-xs px-3 py-1.5">Add</button>
+        </div>
+      </div>
+      {error && <p className="text-sm text-bad">{error}</p>}
+    </div>
+  );
+}
+
+function RoomRow({ locationId, room }: { locationId: number; room: Loc["rooms"][number] }) {
+  const router = useRouter();
+  const [price, setPrice] = useState(room.pricePln !== null ? String(room.pricePln) : "");
+  const [pending, startTransition] = useTransition();
+
+  function save(next: { active?: boolean }) {
     startTransition(async () => {
-      await saveRoom({ id: room.id, locationId, name: room.name, type: room.type, active: !room.active });
+      await saveRoom({
+        id: room.id,
+        locationId,
+        name: room.name,
+        type: room.type,
+        active: next.active ?? room.active,
+        pricePln: price.trim() ? Number(price) : null,
+      });
       router.refresh();
     });
   }
 
   return (
-    <div className="border-t border-line pt-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-faint mr-1">Rooms:</span>
-        {rooms.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => toggle(r)}
-            title={r.active ? "Click to deactivate" : "Click to activate"}
-            className={`px-2.5 py-1 rounded-lg text-xs border ${
-              r.active ? "bg-hovr border-line text-ink" : "bg-card border-line text-faint line-through"
-            }`}
-          >
-            {r.name} · {r.type === "DOUBLE" ? "dbl" : "sgl"}
-          </button>
-        ))}
-        <span className="flex items-center gap-2 ml-auto">
-          <input placeholder="New room" className={`${input} w-28`} value={name} onChange={(e) => setName(e.target.value)} />
-          <select className={input} value={type} onChange={(e) => setType(e.target.value as RoomType)}>
-            <option value="SINGLE">Single</option>
-            <option value="DOUBLE">Double</option>
-          </select>
-          <button onClick={add} disabled={pending || !name.trim()} className="rounded-lg bg-hovr hover:bg-hovr disabled:opacity-50 text-ink px-3 py-1.5 text-xs">
-            Add
-          </button>
-        </span>
-      </div>
-      {error && <p className="text-sm text-bad mt-2">{error}</p>}
+    <div className={`flex items-center gap-2 rounded-lg border border-line px-2 py-1.5 ${room.active ? "" : "opacity-50"}`}>
+      <span className={`text-sm font-medium ${room.active ? "" : "line-through"}`}>{room.name}</span>
+      <span className="text-faint text-xs">{room.type === "DOUBLE" ? "dbl" : "sgl"}</span>
+      <input
+        placeholder="— zł"
+        inputMode="decimal"
+        className={`${input} w-20 ml-auto text-right font-mono`}
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        onBlur={() => save({})}
+      />
+      <span className="text-faint text-xs">zł</span>
+      <button
+        onClick={() => save({ active: !room.active })}
+        disabled={pending}
+        className="text-xs text-faint hover:text-ink"
+        title={room.active ? "Deactivate" : "Activate"}
+      >
+        {room.active ? "on" : "off"}
+      </button>
     </div>
   );
 }
