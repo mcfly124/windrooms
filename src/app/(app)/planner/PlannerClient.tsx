@@ -22,8 +22,10 @@ export default function PlannerClient(props: {
   overrides: Override[];
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Optimistic layer: flips apply instantly; the server response reconciles later
+  const [flips, setFlips] = useState<Map<string, OverrideState | null>>(new Map());
   const days = useMemo(() => eachDay(props.start, props.days), [props.start, props.days]);
   const today = todayYmd();
   const windowEnd = props.releaseWindowDays > 0 ? addDays(today, props.releaseWindowDays) : null;
@@ -33,6 +35,11 @@ export default function PlannerClient(props: {
     for (const o of props.overrides) m.set(`${o.roomId}:${o.date}`, o.state);
     return m;
   }, [props.overrides]);
+
+  function effectiveOverride(key: string): OverrideState | undefined {
+    if (flips.has(key)) return flips.get(key) ?? undefined;
+    return overrideMap.get(key);
+  }
 
   const resMap = useMemo(() => {
     const m = new Map<string, Res>();
@@ -67,10 +74,23 @@ export default function PlannerClient(props: {
 
   function toggle(roomId: number, day: string) {
     setError(null);
+    const key = `${roomId}:${day}`;
+    const current = effectiveOverride(key);
+    const defaultOpen = props.releaseWindowDays === 0 || (windowEnd !== null && day <= windowEnd);
+    // Mirror the server rule: override present → remove it; none → flip the default
+    const next: OverrideState | null = current ? null : defaultOpen ? "CLOSED" : "OPEN";
+    setFlips((prev) => new Map(prev).set(key, next));
     startTransition(async () => {
       const result = await togglePublicDay(roomId, day);
-      if (!result.ok) setError(result.error);
-      router.refresh();
+      if (!result.ok) {
+        setError(result.error);
+        setFlips((prev) => {
+          const m = new Map(prev);
+          m.delete(key);
+          return m;
+        });
+        router.refresh();
+      }
     });
   }
 
@@ -154,14 +174,14 @@ export default function PlannerClient(props: {
                       </td>
                     );
                   }
-                  const override = overrideMap.get(`${room.id}:${d}`);
+                  const override = effectiveOverride(`${room.id}:${d}`);
                   const defaultOpen = props.releaseWindowDays === 0 || (windowEnd !== null && d <= windowEnd);
                   const open = override ? override === "OPEN" : defaultOpen;
                   const isPast = d < today;
                   return (
                     <td key={d} className="border-l border-b border-line p-0">
                       <button
-                        disabled={isPast || pending}
+                        disabled={isPast}
                         onClick={() => toggle(room.id, d)}
                         title={
                           isPast

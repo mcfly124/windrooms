@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { chargeCredits, locationBalance } from "@/lib/credits";
 import { nightsBetween, parseYmd } from "@/lib/dates";
 import { payLinkPath } from "@/lib/booking";
+import { flyspotBookingEmail, sendEmail } from "@/lib/email";
 
 export async function clientBalanceAt(clientId: number, locationId: number): Promise<number> {
   await requireRole("ADMIN", "SUPERADMIN");
@@ -15,7 +16,7 @@ export async function clientBalanceAt(clientId: number, locationId: number): Pro
 }
 
 export type QuickBookResult =
-  | { ok: true; id: number; payLink?: string; paymentId?: number }
+  | { ok: true; id: number; payLink?: string; paymentId?: number; emailNote: string }
   | { ok: false; error: string };
 
 /**
@@ -139,11 +140,32 @@ export async function quickBook(input: {
     revalidatePath("/dashboard");
     revalidatePath("/payments");
 
+    // Confirmation email straight to the client (booking + access instructions)
+    let emailNote: string;
+    if (client.email) {
+      const mail = flyspotBookingEmail({
+        guestName: client.name,
+        roomName: room.name,
+        locationName: room.location.name,
+        checkIn: input.checkIn,
+        checkOut: input.checkOut,
+        checkInTime: input.checkInTime,
+        checkOutTime: input.checkOutTime,
+        buildingInfo: room.location.buildingDoorInfo,
+      });
+      const sent = await sendEmail({ to: client.email, ...mail });
+      emailNote = sent.sent
+        ? `Confirmation emailed to ${client.email}`
+        : `Confirmation email to ${client.email} failed (${sent.error})`;
+    } else {
+      emailNote = "Client has no email on file — no confirmation sent";
+    }
     return {
       ok: true,
       id,
       payLink: paymentId ? payLinkPath(paymentId) : undefined,
       paymentId: paymentId ?? undefined,
+      emailNote,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };

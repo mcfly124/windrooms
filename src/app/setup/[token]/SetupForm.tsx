@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeSetup } from "@/app/actions/setup";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function SetupForm({ token }: { token: string }) {
   const router = useRouter();
@@ -31,23 +32,11 @@ export default function SetupForm({ token }: { token: string }) {
     <div className="space-y-4">
       <div>
         <label className="block label-mono mb-1">Password</label>
-        <input
-          type="password"
-          autoComplete="new-password"
-          className="field"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <PasswordInput autoComplete="new-password" value={password} onChange={setPassword} />
       </div>
       <div>
         <label className="block label-mono mb-1">Repeat password</label>
-        <input
-          type="password"
-          autoComplete="new-password"
-          className="field"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
+        <PasswordInput autoComplete="new-password" value={confirm} onChange={setConfirm} />
       </div>
       <ul className="space-y-1">
         {checks.map((c) => (

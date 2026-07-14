@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getSession, atLeast } from "@/lib/auth";
+import { getSession, atLeast, allowedLocationIds } from "@/lib/auth";
 import { addDays, parseYmd, todayYmd, ymd } from "@/lib/dates";
 import CalendarClient from "./CalendarClient";
 
@@ -19,13 +19,13 @@ export default async function CalendarPage({
   const params = await searchParams;
   const session = (await getSession())!;
 
+  const allowed = allowedLocationIds(session.user);
   const locations = await prisma.location.findMany({
-    where: { active: true },
+    where: { active: true, ...(allowed ? { id: { in: allowed } } : {}) },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true },
   });
-  const operatorLoc = locations.find((l) => l.id === session.user.locationId);
-  const selected = locations.find((l) => l.slug === params.loc) ?? operatorLoc ?? locations[0];
+  const selected = locations.find((l) => l.slug === params.loc) ?? locations[0];
   if (!selected) return <p className="text-mut">No locations configured yet.</p>;
 
   const view = params.view === "week" ? "week" : "month";

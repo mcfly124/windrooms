@@ -3,14 +3,20 @@ import { prisma } from "@/lib/db";
 import { getEurRate } from "@/lib/currency";
 import PaymentsClient from "./PaymentsClient";
 import { payLinkPath } from "@/lib/booking";
+import { getSession, allowedLocationIds } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function PaymentsPage() {
+  const session = (await getSession())!;
+  const allowed = allowedLocationIds(session.user);
   const jar = await cookies();
   const showEur = jar.get("wr_eur")?.value === "1";
   const [payments, clients, eurRate] = await Promise.all([
     prisma.payment.findMany({
+      where: allowed
+        ? { OR: [{ reservation: { room: { locationId: { in: allowed } } } }, { reservationId: null }] }
+        : {},
       include: { client: { select: { name: true } }, recordedBy: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 100,

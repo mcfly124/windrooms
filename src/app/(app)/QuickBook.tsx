@@ -198,6 +198,7 @@ function QuickBookModal({
   const [payLink, setPayLink] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
   const [linkSent, setLinkSent] = useState(false);
+  const [emailNote, setEmailNote] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -269,6 +270,7 @@ function QuickBookModal({
         setSavedId(result.id);
         setPayLink(result.payLink ?? null);
         setPaymentId(result.paymentId ?? null);
+        setEmailNote(result.emailNote);
         router.refresh();
       } else setError(result.error);
     });
@@ -284,6 +286,11 @@ function QuickBookModal({
             <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
           </div>
           <h2 className="font-semibold">Booked — reservation #{savedId}</h2>
+          {emailNote && (
+            <p className={`text-sm rounded-lg px-3 py-2 ${emailNote.startsWith("Confirmation emailed") ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn"}`}>
+              {emailNote}
+            </p>
+          )}
           {payLink && (
             <div className="space-y-2">
               {paymentId && (

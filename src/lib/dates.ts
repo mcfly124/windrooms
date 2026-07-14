@@ -8,8 +8,9 @@ export function parseYmd(s: string): Date {
   return new Date(`${s}T00:00:00.000Z`);
 }
 
+/** "Today" for the business is always Europe/Warsaw, wherever the server or viewer is. */
 export function todayYmd(): string {
-  return ymd(new Date());
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Warsaw" });
 }
 
 export function addDays(s: string, days: number): string {

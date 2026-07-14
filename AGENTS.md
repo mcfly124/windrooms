@@ -20,7 +20,7 @@ Next.js (App Router, Turbopack) · React 19 · Tailwind v4 · Neon Postgres + Pr
 `DATABASE_URL` (Neon), `AUTH_SECRET` (HMAC), `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`. Vercel needs the first two.
 
 ## Roles & auth
-- SUPERADMIN > ADMIN > OPERATOR (`ROLE_RANK` in `src/lib/auth.ts`). Operators are tied to one location (`user.locationId`), read-only + payments.
+- SUPERADMIN > ADMIN > OPERATOR (`ROLE_RANK` in `src/lib/auth.ts`). Operators hold one or more locations (m2m `user.locations`; `allowedLocationIds()` returns null for admins+) — calendar/dashboard/payments are filtered by it.
 - Cookie `wr_session = userId.impersonatorId.issuedMs.hmac`. Impersonation: superadmin only; every write is audit-logged with both ids.
 - `getSession()` is the only auth gate (called in `(app)/layout.tsx` + `requireRole()` in every server action).
 
@@ -36,7 +36,7 @@ Next.js (App Router, Turbopack) · React 19 · Tailwind v4 · Neon Postgres + Pr
 - Currency: PLN only. EUR is display-only (`wr_eur` cookie + NBP API cached 24h in `Setting`, `src/lib/currency.ts`).
 
 ## Conventions
-- Dates are `YYYY-MM-DD` strings at UTC midnight everywhere (`src/lib/dates.ts`); Prisma `@db.Date` columns. Check-in 15:00 / check-out 11:00 (informational).
+- Dates are `YYYY-MM-DD` strings at UTC midnight everywhere (`src/lib/dates.ts`); Prisma `@db.Date` columns. `todayYmd()` is **Europe/Warsaw** — never use `new Date()` directly for business dates. Check-in 15:00 / check-out 11:00 (informational).
 - i18n: `wr_lang` cookie, dictionaries in `src/lib/i18n.ts` (en default, pl). Other prefs cookies: `wr_eur` (EUR display), `wr_theme` (light|dark).
 - Server actions in `src/app/actions/*` return `{ ok } | { ok:false, error }`, never throw to the client; each calls `requireRole()` then `audit()`.
 - UI: light/dark theme via `wr_theme` cookie → `dark` class on `<html>`; design tokens in `globals.css` (`bg-bg`, `bg-card`, `border-line`, `text-ink`, `text-mut`, `text-faint`, `bg-hovr`, accent `bg-acc`/`acc-soft`/`acc-softer`, status `ok`/`warn`/`bad`/`purp` + `-soft`). Never use raw zinc/sky classes. Mono micro-labels via `.label-mono`; shared `.field`, `.btn-primary`, `.btn-ghost`. Sidebar layout in `(app)/layout.tsx` + `SidebarNav.tsx`; pages are thin server components passing serialized props to `*Client.tsx`.
@@ -62,6 +62,9 @@ Month-paged (?month=YYYY-MM, ‹ › arrows) per-room-per-day grid of public ava
 
 ## Stats
 `/stats` (admins+) — occupancy % by location, Flyspot-vs-public room-nights, payments by month (chart.js + react-chartjs-2), tiles incl. credits granted/used and hotel-overflow cost.
+
+## Account & passwords
+`/account` (all roles, linked from the sidebar footer) — self-service password change via `changeOwnPassword`. Use `src/components/PasswordInput.tsx` (eye toggle) for every password field. Stats note: credits "used" counts only reservation-linked entries; manual corrections stay in "granted".
 
 ## Shared components
 `src/components/DatePicker.tsx` (single date), `DateRangePicker.tsx` (one calendar for check-in→check-out — use for stays), and `TimeSelect.tsx` (24h, 30-min steps) — use these instead of native date/time inputs; native selects get styled via `select.field` in globals.css.

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getSession, atLeast } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeLang, t } from "@/lib/i18n";
+import Link from "next/link";
 import HeaderControls from "./HeaderControls";
 import SidebarNav from "./SidebarNav";
 import QuickBook from "./QuickBook";
@@ -71,12 +72,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ])
     : [[], []];
 
-  const now = new Date();
+  // Header clock follows Warsaw, like all business dates
+  const warsawToday = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Warsaw" });
+  const now = new Date(`${warsawToday}T00:00:00Z`);
   const week = Math.ceil(
     ((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86400000 + new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).getUTCDay() + 1) / 7
   );
-  const dateLine = `${now.toLocaleDateString("en-GB", { month: "short" }).toUpperCase()} ${now.getFullYear()} · WK ${week} · ${now
-    .toLocaleDateString("en-GB", { weekday: "short", day: "2-digit" })
+  const dateLine = `${now.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" }).toUpperCase()} ${now.getUTCFullYear()} · WK ${week} · ${now
+    .toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", timeZone: "UTC" })
     .toUpperCase()}`;
 
   return (
@@ -100,7 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
           ))}
         </div>
-        <div className="border-t border-line px-5 py-4 flex items-center gap-3">
+        <Link href="/account" className="border-t border-line px-5 py-4 flex items-center gap-3 hover:bg-hovr" title="Account settings">
           <div className="w-8 h-8 rounded-full bg-purp-soft text-purp flex items-center justify-center text-xs font-semibold">
             {user.name
               .split(" ")
@@ -113,7 +116,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="text-sm font-medium truncate">{user.name}</div>
             <div className="text-xs text-mut">{user.role.toLowerCase()}</div>
           </div>
-        </div>
+        </Link>
       </aside>
 
       {/* Main */}

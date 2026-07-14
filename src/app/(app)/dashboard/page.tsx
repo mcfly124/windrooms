@@ -2,23 +2,27 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { normalizeLang, t } from "@/lib/i18n";
+import { getSession, allowedLocationIds } from "@/lib/auth";
 import { addDays, parseYmd, todayYmd, ymd } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const session = (await getSession())!;
+  const allowed = allowedLocationIds(session.user);
+  const locFilter = allowed ? { room: { locationId: { in: allowed } } } : {};
   const jar = await cookies();
   const lang = normalizeLang(jar.get("wr_lang")?.value);
   const today = todayYmd();
 
   const [arrivals, departures, standby, locations] = await Promise.all([
     prisma.reservation.findMany({
-      where: { status: "CONFIRMED", checkIn: parseYmd(today) },
+      where: { status: "CONFIRMED", checkIn: parseYmd(today), ...locFilter },
       include: { room: { include: { location: true } }, client: true },
       orderBy: { roomId: "asc" },
     }),
     prisma.reservation.findMany({
-      where: { status: "CONFIRMED", checkOut: parseYmd(today) },
+      where: { status: "CONFIRMED", checkOut: parseYmd(today), ...locFilter },
       include: { room: { include: { location: true } }, client: true },
       orderBy: { roomId: "asc" },
     }),
@@ -26,12 +30,13 @@ export default async function DashboardPage() {
       where: {
         status: "STANDBY",
         checkIn: { gte: parseYmd(today), lte: parseYmd(addDays(today, 7)) },
+        ...locFilter,
       },
       include: { room: { include: { location: true } }, client: true },
       orderBy: { checkIn: "asc" },
     }),
     prisma.location.findMany({
-      where: { active: true },
+      where: { active: true, ...(allowed ? { id: { in: allowed } } : {}) },
       include: {
         rooms: {
           where: { active: true },

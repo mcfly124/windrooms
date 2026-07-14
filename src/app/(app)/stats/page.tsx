@@ -60,7 +60,7 @@ export default async function StatsPage() {
     }),
     prisma.creditEntry.findMany({
       where: { createdAt: { gte: windowStart } },
-      select: { nights: true, createdAt: true },
+      select: { nights: true, createdAt: true, reservationId: true },
     }),
     getEurRate(),
   ]);
@@ -92,10 +92,12 @@ export default async function StatsPage() {
     if (m in revenueByMonth) revenueByMonth[m] += Number(p.amountPln);
   }
 
+  // Granted = manual entries (grants and corrections, no reservation attached).
+  // Used = entries tied to reservations (charges net of refunds) — corrections never count here.
   let granted = 0;
   let used = 0;
   for (const c of credits) {
-    if (c.nights > 0) granted += c.nights;
+    if (c.reservationId === null) granted += c.nights;
     else used -= c.nights;
   }
 

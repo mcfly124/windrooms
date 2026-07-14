@@ -153,3 +153,38 @@ export function paymentLinkEmail(p: {
     `),
   };
 }
+
+export function flyspotBookingEmail(b: {
+  guestName: string;
+  roomName: string;
+  locationName: string;
+  checkIn: string;
+  checkOut: string;
+  checkInTime: string;
+  checkOutTime: string;
+  buildingInfo?: string | null;
+  payUrl?: string | null;
+  payAmountLabel?: string | null;
+}): { subject: string; html: string } {
+  return {
+    subject: `Your room at Flyspot ${b.locationName} is booked`,
+    html: wrap(`
+      <h2 style="font-size:18px;margin:0 0 6px">See you soon, ${b.guestName}!</h2>
+      <p style="font-size:14px;color:#64748b;margin:0 0 16px">Your room at Flyspot ${b.locationName} is confirmed.</p>
+      <table style="width:100%;border-collapse:collapse">
+        ${row("Room", `${b.roomName} · Flyspot ${b.locationName}`)}
+        ${row("Check-in", `${b.checkIn} · from ${b.checkInTime}`)}
+        ${row("Check-out", `${b.checkOut} · by ${b.checkOutTime}`)}
+      </table>
+      ${b.payUrl ? `<a href="${b.payUrl}" style="display:block;background:#2563eb;color:#fff;text-decoration:none;text-align:center;border-radius:10px;padding:12px;font-size:14px;font-weight:600;margin-top:18px">Pay ${b.payAmountLabel ?? ""}</a>` : ""}
+      <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-top:18px">
+        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin-bottom:6px">Getting in</div>
+        <p style="font-size:13px;color:#334155;margin:0">${
+          b.buildingInfo ??
+          "Enter the building with the door code you'll receive before arrival, then find your room — your key or room code will be waiting for you."
+        }</p>
+        <p style="font-size:13px;color:#64748b;margin:8px 0 0">Your personal room door code arrives by email before check-in. No reception needed — arrive any time after ${b.checkInTime}.</p>
+      </div>
+    `),
+  };
+}

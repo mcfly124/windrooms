@@ -10,7 +10,7 @@ export default async function UsersPage() {
   if (session.user.role !== "SUPERADMIN") redirect("/dashboard");
 
   const [users, locations] = await Promise.all([
-    prisma.user.findMany({ include: { location: true }, orderBy: [{ role: "asc" }, { name: "asc" }] }),
+    prisma.user.findMany({ include: { locations: { select: { id: true, name: true } } }, orderBy: [{ role: "asc" }, { name: "asc" }] }),
     prisma.location.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
@@ -23,8 +23,8 @@ export default async function UsersPage() {
         email: u.email,
         name: u.name,
         role: u.role,
-        locationId: u.locationId,
-        locationName: u.location?.name ?? null,
+        locationIds: u.locations.map((l) => l.id),
+        locationNames: u.locations.map((l) => l.name),
         active: u.active,
         invitePending: u.passwordHash === null,
       }))}

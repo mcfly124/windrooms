@@ -65,9 +65,8 @@ model User {
   inviteToken     String?   @unique
   inviteExpiresAt DateTime?
   role         Role
-  // Operators belong to one location; admins/superadmin are global (null)
-  locationId   Int?
-  location     Location? @relation(fields: [locationId], references: [id])
+  // Operators are limited to these locations; admins/superadmin are global (empty)
+  locations    Location[] @relation("OperatorLocations")
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
 
@@ -94,7 +93,7 @@ model Location {
   notes                String?
 
   rooms         Room[]
-  users         User[]
+  operators     User[] @relation("OperatorLocations")
   creditEntries CreditEntry[]
   cleaningStaff CleaningStaff[]
 }

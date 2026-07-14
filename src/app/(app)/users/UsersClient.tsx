@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveUser, resendInvite } from "@/app/actions/admin";
 import { impersonateAction } from "@/app/actions/session";
+import PasswordInput from "@/components/PasswordInput";
 import type { Role } from "@prisma/client";
 
 type UserRow = {
@@ -11,8 +12,8 @@ type UserRow = {
   email: string;
   name: string;
   role: Role;
-  locationId: number | null;
-  locationName: string | null;
+  locationIds: number[];
+  locationNames: string[];
   active: boolean;
   invitePending: boolean;
 };
@@ -81,7 +82,7 @@ export default function UsersClient({
                     : "bg-hovr text-mut"
                   }`}>{u.role.toLowerCase()}</span>
                 </td>
-                <td className="px-4 py-2 text-mut">{u.locationName ?? "all"}</td>
+                <td className="px-4 py-2 text-mut">{u.role === "OPERATOR" ? (u.locationNames.join(", ") || "—") : "all"}</td>
                 <td className="px-4 py-2 text-xs">
                   {!u.active ? (
                     <span className="text-faint">disabled</span>
@@ -136,7 +137,7 @@ function UserModal({
     name: initial.name ?? "",
     email: initial.email ?? "",
     role: (initial.role ?? "OPERATOR") as Role,
-    locationId: initial.locationId ?? null,
+    locationIds: initial.locationIds ?? [],
     active: initial.active ?? true,
     password: "",
   });
@@ -153,7 +154,7 @@ function UserModal({
         email: form.email,
         name: form.name,
         role: form.role,
-        locationId: form.locationId,
+        locationIds: form.locationIds,
         active: form.active,
         password: form.password || undefined,
       });
@@ -178,19 +179,37 @@ function UserModal({
             </select>
           </div>
           {form.role === "OPERATOR" && (
-            <div>
-              <label className={label}>Location</label>
-              <select className="field" value={form.locationId ?? ""} onChange={(e) => setForm({ ...form, locationId: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">—</option>
-                {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
+            <div className="col-span-2">
+              <label className={label}>Locations (one or more)</label>
+              <div className="flex flex-wrap gap-2">
+                {locations.map((l) => {
+                  const on = form.locationIds.includes(l.id);
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          locationIds: on ? form.locationIds.filter((id) => id !== l.id) : [...form.locationIds, l.id],
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-full text-sm border ${
+                        on ? "bg-acc text-white border-acc" : "bg-card text-mut border-line hover:bg-hovr"
+                      }`}
+                    >
+                      {l.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
         {initial.id ? (
           <div>
             <label className={label}>New password (leave empty to keep)</label>
-            <input type="password" className={input} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <PasswordInput autoComplete="new-password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
           </div>
         ) : (
           <p className="rounded-xl bg-acc-softer text-sm text-mut px-3 py-2">

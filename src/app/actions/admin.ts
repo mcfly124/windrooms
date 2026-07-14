@@ -107,7 +107,7 @@ export async function saveUser(input: {
   email: string;
   name: string;
   role: Role;
-  locationId: number | null;
+  locationIds: number[];
   active: boolean;
   password?: string; // optional reset on edit; new users get an invite email instead
 }): Promise<ActionResult> {
@@ -118,12 +118,16 @@ export async function saveUser(input: {
     if (input.password && input.password.length < 8) {
       return { ok: false, error: "Password must be at least 8 characters" };
     }
+    if (input.role === "OPERATOR" && input.locationIds.length === 0) {
+      return { ok: false, error: "Pick at least one location for the operator" };
+    }
     const data = {
       email,
       name: input.name.trim(),
       role: input.role,
-      locationId: input.role === "OPERATOR" ? input.locationId : null,
       active: input.active,
+      // Operators get their locations; admins/superadmin are global
+      locations: { set: input.role === "OPERATOR" ? input.locationIds.map((id) => ({ id })) : [] },
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     };
     let user;
@@ -135,6 +139,7 @@ export async function saveUser(input: {
       user = await prisma.user.create({
         data: {
           ...data,
+          locations: { connect: input.role === "OPERATOR" ? input.locationIds.map((id) => ({ id })) : [] },
           inviteToken,
           inviteExpiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
         },

@@ -57,11 +57,19 @@ export async function clearSessionCookie() {
   jar.delete(COOKIE_NAME);
 }
 
+export type SessionUser = User & { locations: { id: number }[] };
+
 export type Session = {
-  user: User;
+  user: SessionUser;
   /** Set when a superadmin is impersonating `user` */
   impersonator: User | null;
 };
+
+/** Location ids an operator may access; null = all (admins & superadmin). */
+export function allowedLocationIds(user: SessionUser): number[] | null {
+  if (user.role !== "OPERATOR") return null;
+  return user.locations.map((l) => l.id);
+}
 
 export const getSession = cache(async (): Promise<Session | null> => {
   const jar = await cookies();
@@ -77,7 +85,10 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (macBuf.length !== expBuf.length || !timingSafeEqual(macBuf, expBuf)) return null;
   if (Date.now() - Number(issued) > MAX_AGE_MS) return null;
 
-  const user = await prisma.user.findUnique({ where: { id: Number(uid) } });
+  const user = await prisma.user.findUnique({
+    where: { id: Number(uid) },
+    include: { locations: { select: { id: true } } },
+  });
   if (!user || !user.active) return null;
 
   let impersonator: User | null = null;

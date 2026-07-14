@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { loginAction } from "@/app/actions/session";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, null);
@@ -20,14 +21,7 @@ export default function LoginForm() {
       </div>
       <div>
         <label className="block text-sm text-mut mb-1" htmlFor="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          className="w-full rounded-lg bg-hovr border border-line px-3 py-2 text-ink outline-none focus:border-acc"
-        />
+        <PasswordInput id="password" name="password" required autoComplete="current-password" />
       </div>
       {state?.error && <p className="text-sm text-bad">{state.error}</p>}
       <button
