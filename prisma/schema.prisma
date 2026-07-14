@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  OPERATOR
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  STANDBY
+  CANCELLED
+  HOTEL_OVERFLOW
+}
+
+enum ReservationSource {
+  FLYSPOT
+  PUBLIC
+}
+
+enum CompanionPayment {
+  CREDITS
+  RECEPTION
+  ONLINE_LINK
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  ONLINE
+  PAYMENT_LINK
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  CANCELLED
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role
+  // Operators belong to one location; admins/superadmin are global (null)
+  locationId   Int?
+  location     Location? @relation(fields: [locationId], references: [id])
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  auditLogs        AuditLog[]    @relation("actor")
+  impersonatedLogs AuditLog[]    @relation("impersonator")
+  creditEntries    CreditEntry[]
+  reservations     Reservation[]
+  payments         Payment[]
+}
+
+model Location {
+  id                   Int     @id @default(autoincrement())
+  name                 String
+  slug                 String  @unique
+  active               Boolean @default(true)
+  // Public (non-Flyspot) booking, Gdansk only for now
+  publicBookingEnabled Boolean @default(false)
+  // Days before check-in when unreserved rooms open to the public (0 = always open)
+  releaseWindowDays    Int     @default(14)
+  buildingDoorInfo     String?
+  hotelPartnerInfo     String?
+  notes                String?
+
+  rooms         Room[]
+  users         User[]
+  creditEntries CreditEntry[]
+  cleaningStaff CleaningStaff[]
+}
+
+model Room {
+  id         Int      @id @default(autoincrement())
+  locationId Int
+  location   Location @relation(fields: [locationId], references: [id])
+  name       String
+  type       RoomType
+  active     Boolean  @default(true)
+  nukiLockId String?
+  notes      String?
+
+  reservations Reservation[]
+
+  @@unique([locationId, name])
+}
+
+model Client {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?
+  phone     String?
+  country   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  creditEntries CreditEntry[]
+  reservations  Reservation[]
+  payments      Payment[]
+
+  @@index([name])
+  @@index([email])
+}
+
+// Night-credit ledger: every grant (+) and every use (-) is a row.
+// Balance is always SUM(nights); scopeLocationId null = valid at all locations.
+model CreditEntry {
+  id              Int          @id @default(autoincrement())
+  clientId        Int
+  client          Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  nights          Int
+  scopeLocationId Int?
+  scopeLocation   Location?    @relation(fields: [scopeLocationId], references: [id])
+  reservationId   Int?
+  reservation     Reservation? @relation(fields: [reservationId], references: [id])
+  note            String?
+  createdById     Int?
+  createdBy       User?        @relation(fields: [createdById], references: [id])
+  createdAt       DateTime     @default(now())
+
+  @@index([clientId])
+}
+
+model Reservation {
+  id     Int  @id @default(autoincrement())
+  roomId Int
+  room   Room @relation(fields: [roomId], references: [id])
+
+  // Flyspot client, or public guest fields for external bookings
+  clientId   Int?
+  client     Client? @relation(fields: [clientId], references: [id])
+  guestName  String?
+  guestEmail String?
+  guestPhone String?
+
+  checkIn  DateTime @db.Date
+  checkOut DateTime @db.Date
+
+  status ReservationStatus @default(CONFIRMED)
+  source ReservationSource @default(FLYSPOT)
+
+  usesCredits       Boolean           @default(false)
+  companionCount    Int               @default(0)
+  companionPayment  CompanionPayment?
+  hotelOverflowCost Decimal?          @db.Decimal(10, 2)
+  notes             String?
+
+  createdById Int?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creditEntries CreditEntry[]
+  payments      Payment[]
+
+  @@index([roomId, checkIn, checkOut])
+  @@index([clientId])
+  @@index([status])
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  reservationId Int?
+  reservation   Reservation?  @relation(fields: [reservationId], references: [id])
+  clientId      Int?
+  client        Client?       @relation(fields: [clientId], references: [id])
+  amountPln     Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  note          String?
+  recordedById  Int?
+  recordedBy    User?         @relation(fields: [recordedById], references: [id])
+  createdAt     DateTime      @default(now())
+  paidAt        DateTime?
+
+  @@index([status])
+}
+
+model CleaningStaff {
+  id         Int      @id @default(autoincrement())
+  locationId Int
+  location   Location @relation(fields: [locationId], references: [id])
+  name       String
+  phone      String?
+  active     Boolean  @default(true)
+
+  shifts CleaningShift[]
+}
+
+model CleaningShift {
+  id        Int           @id @default(autoincrement())
+  staffId   Int
+  staff     CleaningStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date      DateTime      @db.Date
+  startTime String // "HH:MM"
+  endTime   String // "HH:MM"
+  note      String?
+
+  @@index([date])
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           User     @relation("actor", fields: [userId], references: [id])
+  // Set when a superadmin acted while impersonating userId
+  impersonatorId Int?
+  impersonator   User?    @relation("impersonator", fields: [impersonatorId], references: [id])
+  action         String // e.g. "reservation.create"
+  entity         String // e.g. "Reservation"
+  entityId       Int?
+  details        String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
