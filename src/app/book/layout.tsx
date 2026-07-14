@@ -12,7 +12,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/book" className="text-sm font-semibold leading-tight">Flyspot Rooms</Link>
             <div className="label-mono">Gdańsk · by the wind tunnel</div>
           </div>
-          <span className="ml-auto label-mono hidden sm:block">Self check-in · 5 min from GDN airport</span>
+          <div className="ml-auto flex items-center gap-4">
+            <span className="label-mono hidden sm:block">Self check-in · 5 min from GDN airport</span>
+            <Link href="/book/manage" className="text-sm text-mut hover:text-ink whitespace-nowrap">Manage booking</Link>
+          </div>
         </div>
       </header>
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8">{children}</main>

@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const dark = jar.get("wr_theme")?.value === "dark";
   const { user, impersonator } = session;
 
-  const sections: { label: string; items: { href: string; label: string; icon: string }[] }[] = [
+  const sections: { label: string; items: { href: string; label: string; icon: string; badge?: number }[] }[] = [
     {
       label: "Operations",
       items: [
@@ -29,7 +29,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     },
   ];
   if (atLeast(user.role, "ADMIN")) {
+    const unread = await prisma.inboxItem.count({ where: { readAt: null } });
     sections[0].items.splice(2, 0, { href: "/planner", label: "Planner", icon: "layers" });
+    sections[0].items.push({ href: "/inbox", label: "Inbox", icon: "mail", badge: unread });
     sections.push({
       label: "Insights",
       items: [{ href: "/stats", label: "Statistics", icon: "chart" }],

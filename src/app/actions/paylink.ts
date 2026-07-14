@@ -16,6 +16,14 @@ export async function payDemoLink(paymentId: number, sig: string): Promise<Actio
       where: { id: paymentId },
       data: { status: "PAID", paidAt: new Date(), note: `${payment.note ?? ""} · paid via DEMO link`.trim() },
     });
+    await prisma.inboxItem.create({
+      data: {
+        type: "payment.paid",
+        title: `Payment link paid · ${Number(payment.amountPln).toLocaleString("pl-PL")} zł`,
+        body: payment.note,
+        reservationId: payment.reservationId,
+      },
+    });
     return { ok: true, id: paymentId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };

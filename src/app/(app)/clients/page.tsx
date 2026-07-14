@@ -23,6 +23,7 @@ export default async function ClientsPage() {
         email: c.email,
         phone: c.phone,
         country: c.country,
+        category: c.category,
         notes: c.notes,
         balance: balance.get(c.id) ?? 0,
       }))}

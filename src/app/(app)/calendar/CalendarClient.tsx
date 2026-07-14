@@ -61,6 +61,7 @@ export default function CalendarClient(props: {
   const days = useMemo(() => eachDay(props.rangeStart, props.rangeDays), [props.rangeStart, props.rangeDays]);
   const today = todayYmd();
   const [editing, setEditing] = useState<(Partial<Res> & { roomId?: number }) | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   function go(next: { loc?: string; view?: string; anchor?: string }) {
     const q = new URLSearchParams({
@@ -139,16 +140,33 @@ export default function CalendarClient(props: {
           This location has no rooms yet{props.canEdit ? " — add them under Locations." : "."}
         </p>
       ) : props.view === "month" ? (
-        <MonthGrid
-          days={days}
-          anchor={props.anchor}
-          today={today}
-          reservations={props.reservations}
-          canEdit={props.canEdit}
-          rooms={props.rooms}
-          onNew={(day) => setEditing({ roomId: props.rooms[0]?.id, checkIn: day, checkOut: addDays(day, 1) })}
-          onOpen={(r) => setEditing({ ...r })}
-        />
+        <div className="flex gap-4 items-start">
+          <div className="flex-1 min-w-0">
+            <MonthGrid
+              days={days}
+              anchor={props.anchor}
+              today={today}
+              selectedDay={selectedDay}
+              reservations={props.reservations}
+              canEdit={props.canEdit}
+              rooms={props.rooms}
+              onSelectDay={(day) => setSelectedDay(selectedDay === day ? null : day)}
+              onOpen={(r) => setEditing({ ...r })}
+            />
+          </div>
+          {selectedDay && (
+            <DayPanel
+              day={selectedDay}
+              today={today}
+              rooms={props.rooms}
+              reservations={props.reservations}
+              canEdit={props.canEdit}
+              onClose={() => setSelectedDay(null)}
+              onOpen={(r) => setEditing({ ...r })}
+              onNew={(roomId) => setEditing({ roomId, checkIn: selectedDay, checkOut: addDays(selectedDay, 1) })}
+            />
+          )}
+        </div>
       ) : (
         <WeekGrid
           days={days}
@@ -189,19 +207,21 @@ function MonthGrid({
   days,
   anchor,
   today,
+  selectedDay,
   reservations,
   rooms,
   canEdit,
-  onNew,
+  onSelectDay,
   onOpen,
 }: {
   days: string[];
   anchor: string;
   today: string;
+  selectedDay: string | null;
   reservations: Res[];
   rooms: Room[];
   canEdit: boolean;
-  onNew: (day: string) => void;
+  onSelectDay: (day: string) => void;
   onOpen: (r: Res) => void;
 }) {
   void rooms;
@@ -227,10 +247,16 @@ function MonthGrid({
             return (
               <div
                 key={day}
-                onClick={() => canEdit && day >= today && onNew(day)}
-                className={`min-h-28 border-l border-line first:border-l-0 p-1.5 ${
-                  isToday ? "bg-acc-softer" : inMonth ? "" : "bg-hovr/50"
-                } ${canEdit && day >= today ? "cursor-pointer hover:bg-hovr/70" : ""}`}
+                onClick={() => onSelectDay(day)}
+                className={`min-h-28 border-l border-line first:border-l-0 p-1.5 cursor-pointer ${
+                  day === selectedDay
+                    ? "ring-2 ring-acc ring-inset bg-acc-softer/60"
+                    : isToday
+                      ? "bg-acc-softer"
+                      : inMonth
+                        ? "hover:bg-hovr/70"
+                        : "bg-hovr/50 hover:bg-hovr/70"
+                }`}
               >
                 <div className={`font-mono text-xs mb-1 px-1 ${isToday ? "text-acc font-semibold" : inMonth ? "text-ink" : "text-faint"}`}>
                   {day.slice(8)}
@@ -598,5 +624,90 @@ function ReservationModal({
         </div>
       </div>
     </div>
+  );
+}
+
+
+function DayPanel({
+  day,
+  today,
+  rooms,
+  reservations,
+  canEdit,
+  onClose,
+  onOpen,
+  onNew,
+}: {
+  day: string;
+  today: string;
+  rooms: Room[];
+  reservations: Res[];
+  canEdit: boolean;
+  onClose: () => void;
+  onOpen: (r: Res) => void;
+  onNew: (roomId: number) => void;
+}) {
+  const dayRes = reservations
+    .filter((r) => r.checkIn <= day && r.checkOut > day)
+    .sort((a, b) => a.roomName.localeCompare(b.roomName));
+  const busyRooms = new Set(dayRes.filter((r) => r.status === "CONFIRMED").map((r) => r.roomId));
+  const freeRooms = rooms.filter((r) => !busyRooms.has(r.id));
+  const dateLabel = new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+
+  return (
+    <aside className="w-72 shrink-0 rounded-2xl border border-line bg-card p-4 space-y-3 sticky top-20">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="label-mono">{day}</div>
+          <h3 className="font-semibold text-sm">{dateLabel}</h3>
+        </div>
+        <button onClick={onClose} className="text-faint hover:text-ink text-sm">✕</button>
+      </div>
+
+      <div className="space-y-1.5">
+        {dayRes.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => onOpen(r)}
+            className="w-full text-left rounded-xl border border-line hover:bg-hovr p-2.5"
+          >
+            <div className="flex items-center gap-2">
+              <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${CHIP[r.status]}`}>{r.roomName}</span>
+              <span className="text-sm font-medium truncate">{r.clientName ?? r.guestName ?? "?"}</span>
+              {r.source === "PUBLIC" && <span className="label-mono ml-auto">public</span>}
+            </div>
+            <div className="text-xs text-mut font-mono mt-1">
+              {r.checkIn} → {r.checkOut}
+              {r.checkIn === day && ` · arr ${r.checkInTime}`}
+              {r.checkOut === addDays(day, 1) && ` · dep ${r.checkOutTime}`}
+            </div>
+          </button>
+        ))}
+        {dayRes.length === 0 && <p className="text-sm text-faint font-mono py-2">No reservations this night</p>}
+      </div>
+
+      <div className="border-t border-line pt-3 space-y-1.5">
+        <div className="label-mono">Free rooms · {freeRooms.length}</div>
+        <div className="flex flex-wrap gap-1.5">
+          {freeRooms.map((r) => (
+            <button
+              key={r.id}
+              disabled={!canEdit || day < today}
+              onClick={() => onNew(r.id)}
+              title={canEdit && day >= today ? `Book ${r.name} from ${day}` : r.name}
+              className="rounded-lg border border-line px-2 py-1 text-xs hover:bg-hovr disabled:opacity-50"
+            >
+              + {r.name}
+            </button>
+          ))}
+          {freeRooms.length === 0 && <span className="text-xs text-faint font-mono">fully booked</span>}
+        </div>
+      </div>
+    </aside>
   );
 }

@@ -1,12 +1,24 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { nightsBetween, parseYmd } from "@/lib/dates";
-import { bookingSig, stayOpenForRoom, validStayDates } from "@/lib/booking";
+import { nightsBetween, parseYmd, todayYmd, ymd } from "@/lib/dates";
+import { bookingRef, bookingSig, payLinkPath, stayOpenForRoom, validStayDates } from "@/lib/booking";
+import {
+  baseUrl,
+  bookingCancelledEmail,
+  bookingChangedEmail,
+  bookingConfirmationEmail,
+  sendEmail,
+} from "@/lib/email";
+import { getEurRate, fmtPln } from "@/lib/currency";
 
 export type PublicBookingResult =
   | { ok: true; id: number; sig: string }
   | { ok: false; error: string };
+
+function manageUrl(id: number): string {
+  return `${baseUrl()}/book/manage/${id}?sig=${bookingSig(id)}`;
+}
 
 /**
  * Public (unauthenticated) booking. PAYMENTS_MODE governs the payment step:
@@ -76,10 +88,182 @@ export async function createPublicBooking(input: {
           note: `Public booking · ${nights} night(s) · ${guestEmail} · DEMO payment`,
         },
       });
+      await tx.inboxItem.create({
+        data: {
+          type: "booking.new",
+          title: `New public booking ${bookingRef(reservation.id)} · ${guestName}`,
+          body: `Room ${room.name}, ${input.checkIn} → ${input.checkOut}, ${total.toLocaleString("pl-PL")} zł`,
+          reservationId: reservation.id,
+        },
+      });
       return reservation.id;
     });
 
+    const eurRate = await getEurRate();
+    const email = bookingConfirmationEmail({
+      reference: bookingRef(id),
+      guestName,
+      roomName: room.name,
+      locationName: room.location.name,
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      checkInTime: "15:00",
+      checkOutTime: "11:00",
+      totalLabel: fmtPln(total, eurRate, true),
+      manageUrl: manageUrl(id),
+    });
+    await sendEmail({ to: guestEmail, ...email });
+
     return { ok: true, id, sig: bookingSig(id) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
+  }
+}
+
+// ---- manage a booking with confirmation code + email ----
+
+export async function findPublicBooking(
+  reference: string,
+  email: string
+): Promise<{ ok: true; id: number; sig: string } | { ok: false; error: string }> {
+  const match = reference.trim().toUpperCase().match(/^FR-?0*(\d+)$/);
+  if (!match) return { ok: false, error: "That code doesn't look right — it's like FR-00012" };
+  const id = Number(match[1]);
+  const reservation = await prisma.reservation.findUnique({ where: { id } });
+  if (
+    !reservation ||
+    reservation.source !== "PUBLIC" ||
+    reservation.guestEmail?.toLowerCase() !== email.trim().toLowerCase()
+  ) {
+    return { ok: false, error: "No booking found for that code and email" };
+  }
+  return { ok: true, id, sig: bookingSig(id) };
+}
+
+export async function changePublicBookingDates(input: {
+  id: number;
+  sig: string;
+  checkIn: string;
+  checkOut: string;
+}): Promise<{ ok: true; extraPayLink?: string; refundDue?: number } | { ok: false; error: string }> {
+  try {
+    if (bookingSig(input.id) !== input.sig) return { ok: false, error: "Invalid link" };
+    const dateError = validStayDates(input.checkIn, input.checkOut);
+    if (dateError) return { ok: false, error: dateError };
+
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: input.id },
+      include: { room: { include: { location: true } }, payments: true },
+    });
+    if (!reservation || reservation.source !== "PUBLIC" || reservation.status !== "CONFIRMED") {
+      return { ok: false, error: "This booking can no longer be changed" };
+    }
+    if (ymd(reservation.checkIn) <= todayYmd()) {
+      return { ok: false, error: "The stay has already started — contact us to change it" };
+    }
+    const room = reservation.room;
+    if (!(await stayOpenForRoom(prisma, room.id, input.checkIn, input.checkOut, room.location.releaseWindowDays))) {
+      return { ok: false, error: "Those dates are not open for online booking" };
+    }
+
+    const nights = nightsBetween(input.checkIn, input.checkOut);
+    const newTotal = nights * Number(room.pricePln ?? 0);
+    const paid = reservation.payments
+      .filter((p) => p.status === "PAID")
+      .reduce((sum, p) => sum + Number(p.amountPln), 0);
+    const delta = newTotal - paid;
+
+    let extraPayLink: string | undefined;
+    await prisma.$transaction(async (tx) => {
+      const conflict = await tx.reservation.findFirst({
+        where: {
+          roomId: room.id,
+          status: "CONFIRMED",
+          id: { not: reservation.id },
+          checkIn: { lt: parseYmd(input.checkOut) },
+          checkOut: { gt: parseYmd(input.checkIn) },
+        },
+      });
+      if (conflict) throw new Error("The room is not free for those dates");
+
+      await tx.reservation.update({
+        where: { id: reservation.id },
+        data: { checkIn: parseYmd(input.checkIn), checkOut: parseYmd(input.checkOut) },
+      });
+      if (delta > 0) {
+        const payment = await tx.payment.create({
+          data: {
+            reservationId: reservation.id,
+            amountPln: delta,
+            method: "PAYMENT_LINK",
+            status: "PENDING",
+            note: `Date change ${bookingRef(reservation.id)} · difference for ${nights} night(s)`,
+          },
+        });
+        extraPayLink = `${baseUrl()}${payLinkPath(payment.id)}`;
+      }
+      await tx.inboxItem.create({
+        data: {
+          type: "booking.changed",
+          title: `Booking ${bookingRef(reservation.id)} changed · ${reservation.guestName ?? ""}`,
+          body: `New dates ${input.checkIn} → ${input.checkOut}${
+            delta > 0
+              ? ` · ${delta.toLocaleString("pl-PL")} zł extra (link sent)`
+              : delta < 0
+                ? ` · refund due ${(-delta).toLocaleString("pl-PL")} zł`
+                : ""
+          }`,
+          reservationId: reservation.id,
+        },
+      });
+    });
+
+    if (reservation.guestEmail) {
+      const email = bookingChangedEmail({
+        reference: bookingRef(reservation.id),
+        guestName: reservation.guestName ?? "",
+        checkIn: input.checkIn,
+        checkOut: input.checkOut,
+        manageUrl: manageUrl(reservation.id),
+        extraPaymentUrl: extraPayLink ?? null,
+      });
+      await sendEmail({ to: reservation.guestEmail, ...email });
+    }
+    return { ok: true, extraPayLink, refundDue: delta < 0 ? -delta : undefined };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
+  }
+}
+
+export async function cancelPublicBooking(
+  id: number,
+  sig: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (bookingSig(id) !== sig) return { ok: false, error: "Invalid link" };
+    const reservation = await prisma.reservation.findUnique({ where: { id } });
+    if (!reservation || reservation.source !== "PUBLIC" || reservation.status !== "CONFIRMED") {
+      return { ok: false, error: "This booking can no longer be cancelled online" };
+    }
+    if (ymd(reservation.checkIn) <= todayYmd()) {
+      return { ok: false, error: "The stay has already started — contact us instead" };
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.reservation.update({ where: { id }, data: { status: "CANCELLED" } });
+      await tx.inboxItem.create({
+        data: {
+          type: "booking.cancelled",
+          title: `Booking ${bookingRef(id)} cancelled · ${reservation.guestName ?? ""}`,
+          body: `Was ${ymd(reservation.checkIn)} → ${ymd(reservation.checkOut)} · check payments for refund`,
+          reservationId: id,
+        },
+      });
+    });
+    if (reservation.guestEmail) {
+      const email = bookingCancelledEmail({ reference: bookingRef(id), guestName: reservation.guestName ?? "" });
+      await sendEmail({ to: reservation.guestEmail, ...email });
+    }
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
   }

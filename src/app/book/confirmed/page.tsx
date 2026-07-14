@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { bookingSig } from "@/lib/booking";
+import { bookingRef, bookingSig } from "@/lib/booking";
 import { ymd } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export default async function ConfirmedPage({
   });
   if (!reservation || reservation.source !== "PUBLIC") redirect("/book");
 
-  const reference = `FR-${String(reservation.id).padStart(5, "0")}`;
+  const reference = bookingRef(reservation.id);
 
   return (
     <div className="max-w-md mx-auto text-center space-y-6 py-8">
@@ -32,7 +32,13 @@ export default async function ConfirmedPage({
       </div>
       <div>
         <h1 className="text-2xl font-semibold">You&apos;re booked!</h1>
-        <p className="text-mut mt-1">A confirmation was registered for {reservation.guestEmail}.</p>
+        <p className="text-mut mt-1">A confirmation email is on its way to {reservation.guestEmail}.</p>
+      </div>
+
+      <div className="rounded-2xl bg-acc-softer border border-line p-4">
+        <div className="label-mono">Your confirmation code</div>
+        <div className="font-mono text-2xl font-bold text-acc">{reference}</div>
+        <p className="text-xs text-mut mt-1">Save it — with this code and your email you can change or cancel the booking online.</p>
       </div>
 
       <div className="rounded-2xl border border-line bg-card p-5 text-left space-y-3">
@@ -65,7 +71,10 @@ export default async function ConfirmedPage({
         15:00, no reception needed.
       </p>
 
-      <Link href="/book" className="btn-ghost inline-block">Back to Flyspot Rooms</Link>
+      <div className="flex items-center justify-center gap-3">
+        <Link href={`/book/manage/${reservation.id}?sig=${sig}`} className="btn-primary inline-block">Manage this booking</Link>
+        <Link href="/book" className="btn-ghost inline-block">Back to Flyspot Rooms</Link>
+      </div>
     </div>
   );
 }

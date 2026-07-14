@@ -13,6 +13,12 @@ enum Role {
   OPERATOR
 }
 
+enum ClientCategory {
+  FLYSPOT
+  EXTERNAL
+  COACH
+}
+
 enum RoomType {
   SINGLE
   DOUBLE
@@ -109,13 +115,14 @@ model Room {
 }
 
 model Client {
-  id        Int      @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   name      String
   email     String?
   phone     String?
   country   String?
+  category  ClientCategory @default(FLYSPOT)
   notes     String?
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
 
   creditEntries CreditEntry[]
   reservations  Reservation[]
@@ -178,6 +185,7 @@ model Reservation {
 
   creditEntries CreditEntry[]
   payments      Payment[]
+  inboxItems    InboxItem[]
 
   @@index([roomId, checkIn, checkOut])
   @@index([clientId])
@@ -258,6 +266,21 @@ model PublicOverride {
   state  OverrideState
 
   @@unique([roomId, date])
+}
+
+// Admin inbox: events worth a human look (new public bookings, changes,
+// cancellations, paid links). readAt null = unread.
+model InboxItem {
+  id            Int          @id @default(autoincrement())
+  type          String // booking.new | booking.changed | booking.cancelled | payment.paid
+  title         String
+  body          String?
+  reservationId Int?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+  createdAt     DateTime     @default(now())
+  readAt        DateTime?
+
+  @@index([readAt])
 }
 
 model Setting {

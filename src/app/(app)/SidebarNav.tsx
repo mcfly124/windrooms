@@ -34,12 +34,15 @@ const ICONS: Record<string, React.ReactNode> = {
   shield: (
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
   ),
+  mail: (
+    <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6" />
+  ),
 };
 
 export default function SidebarNav({
   items,
 }: {
-  items: { href: string; label: string; icon: string }[];
+  items: { href: string; label: string; icon: string; badge?: number }[];
 }) {
   const pathname = usePathname();
   return (
@@ -66,6 +69,11 @@ export default function SidebarNav({
               {ICONS[item.icon]}
             </svg>
             {item.label}
+            {item.badge !== undefined && item.badge > 0 && (
+              <span className="ml-auto rounded-full bg-acc text-white text-[10px] font-mono px-1.5 py-0.5 leading-none">
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}

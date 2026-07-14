@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import type { ActionResult } from "./reservations";
+import type { ClientCategory } from "@prisma/client";
 
 export async function saveClient(input: {
   id?: number;
@@ -12,6 +13,7 @@ export async function saveClient(input: {
   email: string;
   phone?: string;
   country?: string;
+  category?: ClientCategory;
   notes?: string;
   // Optional credit grant applied together with the save (used by the client modal)
   credit?: { nights: number; scopeLocationId: number | null; note?: string } | null;
@@ -32,6 +34,7 @@ export async function saveClient(input: {
       email,
       phone: input.phone?.trim() || null,
       country: input.country?.trim() || null,
+      category: input.category ?? "FLYSPOT",
       notes: input.notes?.trim() || null,
     };
     const client = await prisma.$transaction(async (tx) => {

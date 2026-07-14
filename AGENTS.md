@@ -47,6 +47,13 @@ Next.js (App Router, Turbopack) · React 19 · Tailwind v4 · Neon Postgres + Pr
 ## Planner (`/planner`, admins+)
 Per-room-per-day grid of public availability for public-enabled locations. `PublicOverride` rows flip a day away from the window default (OPEN beyond the window / CLOSED inside it); clicking cycles default → override → default (`togglePublicDay`). Booked days shown read-only.
 
+## Manage booking + inbox + email
+- Guests manage bookings at `/book/manage` with confirmation code (`bookingRef`, FR-00012 style) + email → signed `/book/manage/[id]?sig` page: change dates (delta > 0 creates a PAYMENT_LINK payment and emails the link; delta < 0 flags refund) or cancel. Only before check-in.
+- `InboxItem` rows are created on public booking / change / cancel / paid link; `/inbox` (admins+) lists them with unread badge in the sidebar. Mark read via `src/app/actions/inbox.ts`.
+- Email via Resend HTTP API in `src/lib/email.ts` — needs `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_BASE_URL` envs; without the key, emails are logged and skipped (no failures).
+- Clients have `category` (FLYSPOT | EXTERNAL | COACH), filterable on /clients.
+- Month calendar: clicking a day opens a right side panel (that night's reservations + free rooms with quick-create).
+
 ## Quick booking (header button, admins+)
 `QuickBook.tsx` modal + `src/app/actions/quickbook.ts`: client autocomplete, room, dates+times, and night coverage split across the client's own credits (auto-filled from balance), a donor client's credits, and a remainder via payment link or reception. Payment links: `payLinkPath(paymentId)` → `/pay/[id]?sig` (HMAC `payLinkSig`), public demo checkout marks the payment PAID (`payDemoLink`); Payments page shows "copy link" on pending PAYMENT_LINK rows.
 

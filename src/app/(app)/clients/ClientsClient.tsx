@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { saveClient } from "@/app/actions/clients";
+import type { ClientCategory } from "@prisma/client";
 
 type ClientRow = {
   id: number;
@@ -11,8 +12,15 @@ type ClientRow = {
   email: string | null;
   phone: string | null;
   country: string | null;
+  category: ClientCategory;
   notes: string | null;
   balance: number;
+};
+
+const CATEGORY_META: Record<ClientCategory, { label: string; cls: string }> = {
+  FLYSPOT: { label: "Flyspot", cls: "bg-acc-soft text-acc" },
+  EXTERNAL: { label: "External", cls: "bg-ok-soft text-ok" },
+  COACH: { label: "Coach", cls: "bg-purp-soft text-purp" },
 };
 
 export default function ClientsClient({
@@ -26,15 +34,17 @@ export default function ClientsClient({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<ClientCategory | "ALL">("ALL");
   const [editing, setEditing] = useState<Partial<ClientRow> | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.includes(q)
-    );
-  }, [clients, query]);
+    return clients.filter((c) => {
+      if (category !== "ALL" && c.category !== category) return false;
+      if (!q) return true;
+      return c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.includes(q);
+    });
+  }, [clients, query, category]);
 
   return (
     <div className="space-y-4">
@@ -52,6 +62,23 @@ export default function ClientsClient({
         )}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="label-mono mr-1">Category</span>
+        {(["ALL", "FLYSPOT", "EXTERNAL", "COACH"] as const).map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategory(c)}
+            className={`px-3.5 py-1.5 rounded-full text-sm border ${
+              category === c
+                ? "bg-acc text-white border-acc"
+                : "bg-card text-mut border-line hover:bg-hovr hover:text-ink"
+            }`}
+          >
+            {c === "ALL" ? "All" : CATEGORY_META[c].label}
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-x-auto rounded-2xl border border-line">
         <table className="w-full text-sm">
           <thead>
@@ -59,6 +86,7 @@ export default function ClientsClient({
               <th className="px-4 py-2.5 font-medium">Name</th>
               <th className="px-4 py-2.5 font-medium">Email</th>
               <th className="px-4 py-2.5 font-medium">Phone</th>
+              <th className="px-4 py-2.5 font-medium">Category</th>
               <th className="px-4 py-2.5 font-medium text-right">Nights balance</th>
               <th className="px-4 py-2.5" />
             </tr>
@@ -71,6 +99,11 @@ export default function ClientsClient({
                 </td>
                 <td className="px-4 py-2 text-mut">{c.email ?? "—"}</td>
                 <td className="px-4 py-2 text-mut">{c.phone ?? "—"}</td>
+                <td className="px-4 py-2">
+                  <span className={`px-2 py-0.5 rounded text-xs ${CATEGORY_META[c.category].cls}`}>
+                    {CATEGORY_META[c.category].label}
+                  </span>
+                </td>
                 <td className={`px-4 py-2 text-right font-medium ${c.balance > 0 ? "text-ok" : "text-faint"}`}>
                   {c.balance}
                 </td>
@@ -82,7 +115,7 @@ export default function ClientsClient({
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-faint">No clients</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-faint">No clients</td></tr>
             )}
           </tbody>
         </table>
@@ -119,6 +152,7 @@ function ClientModal({
     email: initial.email ?? "",
     phone: initial.phone ?? "",
     country: initial.country ?? "",
+    category: (initial.category ?? "FLYSPOT") as ClientCategory,
     notes: initial.notes ?? "",
   });
   const [credit, setCredit] = useState({ nights: "", scope: "", note: "" });
@@ -153,7 +187,17 @@ function ClientModal({
           <div><label className={label}>Email * (used for door codes & confirmations)</label><input type="email" className={input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
           <div><label className={label}>Phone</label><input className={input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
         </div>
-        <div><label className={label}>Country</label><input className={input} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={label}>Country</label><input className={input} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
+          <div>
+            <label className={label}>Category</label>
+            <select className="field" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ClientCategory })}>
+              <option value="FLYSPOT">Flyspot client</option>
+              <option value="EXTERNAL">External client</option>
+              <option value="COACH">Coach</option>
+            </select>
+          </div>
+        </div>
         <div><label className={label}>Notes</label><textarea rows={2} className={input} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
         <div className="rounded-xl bg-hovr p-3 space-y-2">
           <div className="label-mono">{initial.id ? "Add night credits (optional)" : "Initial night credits (optional)"}</div>
