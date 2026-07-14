@@ -33,6 +33,11 @@ export async function setLangAction(lang: string) {
   jar.set("wr_lang", lang === "pl" ? "pl" : "en", { maxAge: 365 * 24 * 3600, path: "/" });
 }
 
+export async function setThemeAction(theme: "light" | "dark") {
+  const jar = await cookies();
+  jar.set("wr_theme", theme === "dark" ? "dark" : "light", { maxAge: 365 * 24 * 3600, path: "/" });
+}
+
 export async function setCurrencyAction(showEur: boolean) {
   const jar = await cookies();
   jar.set("wr_eur", showEur ? "1" : "0", { maxAge: 365 * 24 * 3600, path: "/" });

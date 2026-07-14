@@ -35,9 +35,9 @@ Next.js (App Router, Turbopack) · React 19 · Tailwind v4 · Neon Postgres + Pr
 
 ## Conventions
 - Dates are `YYYY-MM-DD` strings at UTC midnight everywhere (`src/lib/dates.ts`); Prisma `@db.Date` columns. Check-in 15:00 / check-out 11:00 (informational).
-- i18n: `wr_lang` cookie, dictionaries in `src/lib/i18n.ts` (en default, pl).
+- i18n: `wr_lang` cookie, dictionaries in `src/lib/i18n.ts` (en default, pl). Other prefs cookies: `wr_eur` (EUR display), `wr_theme` (light|dark).
 - Server actions in `src/app/actions/*` return `{ ok } | { ok:false, error }`, never throw to the client; each calls `requireRole()` then `audit()`.
-- UI: dark zinc (`bg-zinc-900` cards, `border-zinc-800`), sky accent; pages are thin server components passing serialized props to `*Client.tsx`.
+- UI: light/dark theme via `wr_theme` cookie → `dark` class on `<html>`; design tokens in `globals.css` (`bg-bg`, `bg-card`, `border-line`, `text-ink`, `text-mut`, `text-faint`, `bg-hovr`, accent `bg-acc`/`acc-soft`/`acc-softer`, status `ok`/`warn`/`bad`/`purp` + `-soft`). Never use raw zinc/sky classes. Mono micro-labels via `.label-mono`; shared `.field`, `.btn-primary`, `.btn-ghost`. Sidebar layout in `(app)/layout.tsx` + `SidebarNav.tsx`; pages are thin server components passing serialized props to `*Client.tsx`.
 
 ## Planned (not built)
 Excel importer (waiting for a sample file) · public Gdańsk booking frontend + Stripe (`PAYMENTS_MODE` = demo|test|live) · Nuki lock API · tunnel-booking alerts (see coaching-booking's `src/lib/flyspot.ts`) · email notifications (cleaning, reservations).

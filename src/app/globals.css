@@ -1,26 +1,137 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Design tokens — light (default) and dark, switched by the `dark` class on <html> */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --line: #e2e8f0;
+  --ink: #0f172a;
+  --mut: #64748b;
+  --faint: #94a3b8;
+  --hovr: #f1f5f9;
+  --acc: #2563eb;
+  --acc-strong: #1d4ed8;
+  --acc-soft: #dbeafe;
+  --acc-softer: #eff6ff;
+  --ok: #059669;
+  --ok-soft: #d1fae5;
+  --warn: #b45309;
+  --warn-soft: #fef3c7;
+  --bad: #dc2626;
+  --bad-soft: #fee2e2;
+  --purp: #7c3aed;
+  --purp-soft: #ede9fe;
+}
+
+.dark {
+  --bg: #0b0e14;
+  --card: #131722;
+  --line: #262b38;
+  --ink: #f1f5f9;
+  --mut: #94a3b8;
+  --faint: #64748b;
+  --hovr: #1b2130;
+  --acc: #3b82f6;
+  --acc-strong: #60a5fa;
+  --acc-soft: #1e3a8a;
+  --acc-softer: #172554;
+  --ok: #34d399;
+  --ok-soft: #064e3b;
+  --warn: #fbbf24;
+  --warn-soft: #451a03;
+  --bad: #f87171;
+  --bad-soft: #450a0a;
+  --purp: #a78bfa;
+  --purp-soft: #2e1065;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-mut: var(--mut);
+  --color-faint: var(--faint);
+  --color-hovr: var(--hovr);
+  --color-acc: var(--acc);
+  --color-acc-strong: var(--acc-strong);
+  --color-acc-soft: var(--acc-soft);
+  --color-acc-softer: var(--acc-softer);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-purp: var(--purp);
+  --color-purp-soft: var(--purp-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Small mono section labels, as in the coaching-booking UI */
+.label-mono {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* Shared form controls */
+.field {
+  width: 100%;
+  border-radius: 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+  outline: none;
+}
+.field:focus {
+  border-color: var(--acc);
+}
+.field:disabled {
+  opacity: 0.5;
+}
+
+.btn-primary {
+  border-radius: 0.5rem;
+  background: var(--acc);
+  color: #fff;
+  padding: 0.4rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  background: var(--acc-strong);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.btn-ghost {
+  border-radius: 0.5rem;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.btn-ghost:hover {
+  background: var(--hovr);
+}
+.btn-ghost:disabled {
+  opacity: 0.5;
 }

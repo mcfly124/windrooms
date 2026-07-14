@@ -38,16 +38,16 @@ export default function UsersClient({
   return (
     <div className="space-y-4">
       <div className="flex items-center">
-        <h1 className="text-lg font-semibold text-white">Users</h1>
-        <button onClick={() => setEditing({})} className="ml-auto rounded-lg bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 text-sm font-medium">
+        <h1 className="text-lg font-semibold text-ink">Users</h1>
+        <button onClick={() => setEditing({})} className="ml-auto rounded-lg bg-acc hover:bg-acc-strong text-white px-4 py-2 text-sm font-medium">
           + User
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-zinc-800">
+      <div className="overflow-x-auto rounded-2xl border border-line">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-zinc-900 text-left text-zinc-400">
+            <tr className="bg-card text-left text-mut">
               <th className="px-4 py-2.5 font-medium">Name</th>
               <th className="px-4 py-2.5 font-medium">Email</th>
               <th className="px-4 py-2.5 font-medium">Role</th>
@@ -58,23 +58,23 @@ export default function UsersClient({
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="border-t border-zinc-800">
-                <td className="px-4 py-2 text-white">{u.name}{u.id === currentUserId && <span className="text-zinc-500 text-xs"> (you)</span>}</td>
-                <td className="px-4 py-2 text-zinc-400">{u.email}</td>
+              <tr key={u.id} className="border-t border-line">
+                <td className="px-4 py-2 text-ink">{u.name}{u.id === currentUserId && <span className="text-faint text-xs"> (you)</span>}</td>
+                <td className="px-4 py-2 text-mut">{u.email}</td>
                 <td className="px-4 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs ${
-                    u.role === "SUPERADMIN" ? "bg-purple-900/60 text-purple-300"
-                    : u.role === "ADMIN" ? "bg-sky-900/60 text-sky-300"
-                    : "bg-zinc-800 text-zinc-300"
+                    u.role === "SUPERADMIN" ? "bg-purp-soft text-purp"
+                    : u.role === "ADMIN" ? "bg-acc-soft text-acc"
+                    : "bg-hovr text-mut"
                   }`}>{u.role.toLowerCase()}</span>
                 </td>
-                <td className="px-4 py-2 text-zinc-400">{u.locationName ?? "all"}</td>
-                <td className="px-4 py-2 text-xs">{u.active ? <span className="text-emerald-400">active</span> : <span className="text-zinc-600">disabled</span>}</td>
+                <td className="px-4 py-2 text-mut">{u.locationName ?? "all"}</td>
+                <td className="px-4 py-2 text-xs">{u.active ? <span className="text-ok">active</span> : <span className="text-faint">disabled</span>}</td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">
                   {u.id !== currentUserId && u.active && (
-                    <button onClick={() => impersonate(u.id)} className="text-amber-400 hover:text-amber-300 text-xs mr-3">impersonate</button>
+                    <button onClick={() => impersonate(u.id)} className="text-warn hover:text-warn text-xs mr-3">impersonate</button>
                   )}
-                  <button onClick={() => setEditing(u)} className="text-zinc-400 hover:text-white text-xs">edit</button>
+                  <button onClick={() => setEditing(u)} className="text-mut hover:text-ink text-xs">edit</button>
                 </td>
               </tr>
             ))}
@@ -118,8 +118,8 @@ function UserModal({
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const input = "w-full rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5 text-sm text-white outline-none focus:border-sky-500";
-  const label = "block text-xs text-zinc-400 mb-1";
+  const input = "w-full rounded-lg bg-hovr border border-line px-2.5 py-1.5 text-sm text-ink outline-none focus:border-acc";
+  const label = "block text-xs text-mut mb-1";
 
   function submit() {
     setError(null);
@@ -140,8 +140,8 @@ function UserModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-white font-semibold">{initial.id ? "Edit user" : "New user"}</h2>
+      <div className="w-full max-w-md rounded-2xl bg-card border border-line p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-ink font-semibold">{initial.id ? "Edit user" : "New user"}</h2>
         <div className="grid grid-cols-2 gap-3">
           <div><label className={label}>Name</label><input className={input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
           <div><label className={label}>Email</label><input className={input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
@@ -167,14 +167,14 @@ function UserModal({
           <label className={label}>{initial.id ? "New password (leave empty to keep)" : "Password"}</label>
           <input type="password" className={input} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         </div>
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
+        <label className="flex items-center gap-2 text-sm text-mut">
           <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
           Active
         </label>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-bad">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <button onClick={submit} disabled={pending} className="rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium">Save</button>
-          <button onClick={onClose} className="ml-auto rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 text-sm">Close</button>
+          <button onClick={submit} disabled={pending} className="rounded-lg bg-acc hover:bg-acc-strong disabled:opacity-50 text-white px-4 py-2 text-sm font-medium">Save</button>
+          <button onClick={onClose} className="ml-auto rounded-lg bg-hovr hover:bg-hovr text-mut px-4 py-2 text-sm">Close</button>
         </div>
       </div>
     </div>

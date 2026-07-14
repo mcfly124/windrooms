@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { getSession, atLeast } from "@/lib/auth";
 import { addDays, parseYmd, todayYmd, ymd } from "@/lib/dates";
@@ -6,30 +5,47 @@ import CalendarClient from "./CalendarClient";
 
 export const dynamic = "force-dynamic";
 
-const DAYS = 28;
+function mondayOf(dateYmd: string): string {
+  const d = parseYmd(dateYmd);
+  const shift = (d.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+  return addDays(dateYmd, -shift);
+}
 
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ loc?: string; start?: string }>;
+  searchParams: Promise<{ loc?: string; view?: string; anchor?: string }>;
 }) {
   const params = await searchParams;
   const session = (await getSession())!;
-  const jar = await cookies();
-  void jar;
 
   const locations = await prisma.location.findMany({
     where: { active: true },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true },
   });
-  // Operators default to their own location
   const operatorLoc = locations.find((l) => l.id === session.user.locationId);
-  const selected =
-    locations.find((l) => l.slug === params.loc) ?? operatorLoc ?? locations[0];
-  if (!selected) return <p className="text-zinc-400">No locations configured yet.</p>;
+  const selected = locations.find((l) => l.slug === params.loc) ?? operatorLoc ?? locations[0];
+  if (!selected) return <p className="text-mut">No locations configured yet.</p>;
 
-  const start = /^\d{4}-\d{2}-\d{2}$/.test(params.start ?? "") ? params.start! : addDays(todayYmd(), -1);
+  const view = params.view === "week" ? "week" : "month";
+  const anchor = /^\d{4}-\d{2}-\d{2}$/.test(params.anchor ?? "") ? params.anchor! : todayYmd();
+
+  // Visible range: month = Monday before the 1st → Sunday after month end; week = Mon–Sun
+  let rangeStart: string;
+  let rangeDays: number;
+  if (view === "month") {
+    const firstOfMonth = anchor.slice(0, 8) + "01";
+    rangeStart = mondayOf(firstOfMonth);
+    const d = parseYmd(firstOfMonth);
+    d.setUTCMonth(d.getUTCMonth() + 1);
+    const lastSunday = addDays(mondayOf(addDays(ymd(d), -1)), 6);
+    rangeDays =
+      Math.round((parseYmd(lastSunday).getTime() - parseYmd(rangeStart).getTime()) / 86400000) + 1;
+  } else {
+    rangeStart = mondayOf(anchor);
+    rangeDays = 7;
+  }
 
   const [rooms, reservations, clients] = await Promise.all([
     prisma.room.findMany({
@@ -41,10 +57,10 @@ export default async function CalendarPage({
       where: {
         room: { locationId: selected.id },
         status: { not: "CANCELLED" },
-        checkIn: { lt: parseYmd(addDays(start, DAYS)) },
-        checkOut: { gt: parseYmd(start) },
+        checkIn: { lt: parseYmd(addDays(rangeStart, rangeDays)) },
+        checkOut: { gt: parseYmd(rangeStart) },
       },
-      include: { client: { select: { id: true, name: true } } },
+      include: { client: { select: { id: true, name: true } }, room: { select: { name: true } } },
     }),
     prisma.client.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
@@ -53,15 +69,17 @@ export default async function CalendarPage({
     <CalendarClient
       locations={locations}
       selectedSlug={selected.slug}
-      selectedLocationId={selected.id}
-      start={start}
-      days={DAYS}
+      view={view}
+      anchor={anchor}
+      rangeStart={rangeStart}
+      rangeDays={rangeDays}
       rooms={rooms}
       canEdit={atLeast(session.user.role, "ADMIN")}
       clients={clients}
       reservations={reservations.map((r) => ({
         id: r.id,
         roomId: r.roomId,
+        roomName: r.room.name,
         clientId: r.clientId,
         clientName: r.client?.name ?? null,
         guestName: r.guestName,

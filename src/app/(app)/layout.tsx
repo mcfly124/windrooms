@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { getSession, atLeast } from "@/lib/auth";
 import { normalizeLang, t } from "@/lib/i18n";
 import HeaderControls from "./HeaderControls";
+import SidebarNav from "./SidebarNav";
 import { stopImpersonationAction } from "@/app/actions/session";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -12,57 +12,101 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const jar = await cookies();
   const lang = normalizeLang(jar.get("wr_lang")?.value);
   const showEur = jar.get("wr_eur")?.value === "1";
+  const dark = jar.get("wr_theme")?.value === "dark";
   const { user, impersonator } = session;
 
-  const nav: { href: string; label: string }[] = [
-    { href: "/dashboard", label: t(lang, "dashboard") },
-    { href: "/calendar", label: t(lang, "calendar") },
-    { href: "/clients", label: t(lang, "clients") },
-    { href: "/payments", label: t(lang, "payments") },
+  const sections: { label: string; items: { href: string; label: string; icon: string }[] }[] = [
+    {
+      label: "Operations",
+      items: [
+        { href: "/dashboard", label: t(lang, "dashboard"), icon: "grid" },
+        { href: "/calendar", label: t(lang, "calendar"), icon: "calendar" },
+        { href: "/clients", label: t(lang, "clients"), icon: "users" },
+        { href: "/payments", label: t(lang, "payments"), icon: "card" },
+      ],
+    },
   ];
   if (atLeast(user.role, "ADMIN")) {
-    nav.push({ href: "/cleaning", label: t(lang, "cleaning") });
-    nav.push({ href: "/activity", label: t(lang, "activity") });
-  }
-  if (user.role === "SUPERADMIN") {
-    nav.push({ href: "/locations", label: t(lang, "locations") });
-    nav.push({ href: "/users", label: t(lang, "users") });
+    sections.push({
+      label: "Admin",
+      items: [
+        { href: "/cleaning", label: t(lang, "cleaning"), icon: "spark" },
+        { href: "/activity", label: t(lang, "activity"), icon: "list" },
+        ...(user.role === "SUPERADMIN"
+          ? [
+              { href: "/locations", label: t(lang, "locations"), icon: "pin" },
+              { href: "/users", label: t(lang, "users"), icon: "shield" },
+            ]
+          : []),
+      ],
+    });
   }
 
+  const now = new Date();
+  const week = Math.ceil(
+    ((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86400000 + new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).getUTCDay() + 1) / 7
+  );
+  const dateLine = `${now.toLocaleDateString("en-GB", { month: "short" }).toUpperCase()} ${now.getFullYear()} · WK ${week} · ${now
+    .toLocaleDateString("en-GB", { weekday: "short", day: "2-digit" })
+    .toUpperCase()}`;
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      {impersonator && (
-        <div className="bg-amber-500 text-black text-sm px-4 py-1.5 flex items-center justify-between">
-          <span>
-            {t(lang, "viewing_as")} <b>{user.name}</b> ({user.role.toLowerCase()})
-          </span>
-          <form action={stopImpersonationAction}>
-            <button className="underline font-medium">{t(lang, "exit_impersonation")}</button>
-          </form>
-        </div>
-      )}
-      <header className="border-b border-zinc-800 bg-zinc-900/70 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-6">
-          <Link href="/dashboard" className="font-semibold text-white whitespace-nowrap">
-            Flyspot <span className="text-sky-400">Rooms</span>
-          </Link>
-          <nav className="flex items-center gap-1 overflow-x-auto text-sm">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-800 whitespace-nowrap"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="ml-auto">
-            <HeaderControls lang={lang} showEur={showEur} userName={user.name} role={user.role} />
+    <div className="min-h-screen bg-bg text-ink flex">
+      {/* Sidebar */}
+      <aside className="w-60 shrink-0 bg-card border-r border-line flex flex-col sticky top-0 h-screen">
+        <div className="flex items-center gap-3 px-5 h-16">
+          <div className="w-9 h-9 rounded-xl bg-acc text-white flex items-center justify-center font-semibold text-sm">
+            FR
+          </div>
+          <div>
+            <div className="text-sm font-semibold leading-tight">Flyspot</div>
+            <div className="label-mono">Rooms ops</div>
           </div>
         </div>
-      </header>
-      <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-5">
+          {sections.map((s) => (
+            <div key={s.label}>
+              <div className="label-mono px-2 mb-1.5">{s.label}</div>
+              <SidebarNav items={s.items} />
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-line px-5 py-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-purp-soft text-purp flex items-center justify-center text-xs font-semibold">
+            {user.name
+              .split(" ")
+              .map((w) => w[0])
+              .slice(0, 2)
+              .join("")
+              .toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium truncate">{user.name}</div>
+            <div className="text-xs text-mut">{user.role.toLowerCase()}</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {impersonator && (
+          <div className="bg-warn-soft text-warn text-sm px-6 py-1.5 flex items-center justify-between border-b border-line">
+            <span>
+              {t(lang, "viewing_as")} <b>{user.name}</b> ({user.role.toLowerCase()})
+            </span>
+            <form action={stopImpersonationAction}>
+              <button className="underline font-medium">{t(lang, "exit_impersonation")}</button>
+            </form>
+          </div>
+        )}
+        <header className="h-16 border-b border-line bg-card flex items-center gap-4 px-6 sticky top-0 z-40">
+          <span className="label-mono">{dateLine}</span>
+          <div className="ml-auto flex items-center gap-2">
+            <HeaderControls lang={lang} showEur={showEur} dark={dark} />
+          </div>
+        </header>
+        <main className="flex-1 p-6">{children}</main>
+      </div>
     </div>
   );
 }

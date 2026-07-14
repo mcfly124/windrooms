@@ -17,16 +17,16 @@ type Loc = {
   rooms: { id: number; name: string; type: RoomType; active: boolean }[];
 };
 
-const input = "rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-1.5 text-sm text-white outline-none focus:border-sky-500";
-const label = "block text-xs text-zinc-400 mb-1";
+const input = "rounded-lg bg-hovr border border-line px-2.5 py-1.5 text-sm text-ink outline-none focus:border-acc";
+const label = "block text-xs text-mut mb-1";
 
 export default function LocationsClient({ locations }: { locations: Loc[] }) {
   const [adding, setAdding] = useState(false);
   return (
     <div className="space-y-4">
       <div className="flex items-center">
-        <h1 className="text-lg font-semibold text-white">Locations</h1>
-        <button onClick={() => setAdding(true)} className="ml-auto rounded-lg bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 text-sm font-medium">
+        <h1 className="text-lg font-semibold text-ink">Locations</h1>
+        <button onClick={() => setAdding(true)} className="ml-auto rounded-lg bg-acc hover:bg-acc-strong text-white px-4 py-2 text-sm font-medium">
           + Location
         </button>
       </div>
@@ -70,7 +70,7 @@ function LocationCard({ loc, isNew, onDone }: { loc: Loc; isNew?: boolean; onDon
   }
 
   return (
-    <div className={`rounded-2xl bg-zinc-900 border p-4 space-y-4 ${form.active ? "border-zinc-800" : "border-zinc-800 opacity-60"}`}>
+    <div className={`rounded-2xl bg-card border p-4 space-y-4 ${form.active ? "border-line" : "border-line opacity-60"}`}>
       <div className="flex flex-wrap items-end gap-3">
         <div><label className={label}>Name</label><input className={input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
         <div><label className={label}>Slug</label><input className={`${input} w-28`} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
@@ -78,15 +78,15 @@ function LocationCard({ loc, isNew, onDone }: { loc: Loc; isNew?: boolean; onDon
           <label className={label}>Public release window (days, 0 = always)</label>
           <input type="number" min={0} className={`${input} w-24`} value={form.releaseWindowDays} onChange={(e) => setForm({ ...form, releaseWindowDays: Number(e.target.value) })} />
         </div>
-        <label className="flex items-center gap-2 text-sm text-zinc-300 pb-1.5">
+        <label className="flex items-center gap-2 text-sm text-mut pb-1.5">
           <input type="checkbox" checked={form.publicBookingEnabled} onChange={(e) => setForm({ ...form, publicBookingEnabled: e.target.checked })} />
           Public booking
         </label>
-        <label className="flex items-center gap-2 text-sm text-zinc-300 pb-1.5">
+        <label className="flex items-center gap-2 text-sm text-mut pb-1.5">
           <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
           Active
         </label>
-        <button onClick={submit} disabled={pending} className="rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white px-4 py-1.5 text-sm font-medium">
+        <button onClick={submit} disabled={pending} className="rounded-lg bg-acc hover:bg-acc-strong disabled:opacity-50 text-white px-4 py-1.5 text-sm font-medium">
           Save
         </button>
       </div>
@@ -94,7 +94,7 @@ function LocationCard({ loc, isNew, onDone }: { loc: Loc; isNew?: boolean; onDon
         <div><label className={label}>Partner hotel info</label><input className={`${input} w-full`} value={form.hotelPartnerInfo} onChange={(e) => setForm({ ...form, hotelPartnerInfo: e.target.value })} /></div>
         <div><label className={label}>Notes</label><input className={`${input} w-full`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
       </div>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-bad">{error}</p>}
       {!isNew && <RoomsEditor locationId={loc.id} rooms={loc.rooms} />}
     </div>
   );
@@ -126,16 +126,16 @@ function RoomsEditor({ locationId, rooms }: { locationId: number; rooms: Loc["ro
   }
 
   return (
-    <div className="border-t border-zinc-800 pt-3">
+    <div className="border-t border-line pt-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-zinc-500 mr-1">Rooms:</span>
+        <span className="text-xs text-faint mr-1">Rooms:</span>
         {rooms.map((r) => (
           <button
             key={r.id}
             onClick={() => toggle(r)}
             title={r.active ? "Click to deactivate" : "Click to activate"}
             className={`px-2.5 py-1 rounded-lg text-xs border ${
-              r.active ? "bg-zinc-800 border-zinc-600 text-white" : "bg-zinc-900 border-zinc-800 text-zinc-600 line-through"
+              r.active ? "bg-hovr border-line text-ink" : "bg-card border-line text-faint line-through"
             }`}
           >
             {r.name} · {r.type === "DOUBLE" ? "dbl" : "sgl"}
@@ -147,12 +147,12 @@ function RoomsEditor({ locationId, rooms }: { locationId: number; rooms: Loc["ro
             <option value="SINGLE">Single</option>
             <option value="DOUBLE">Double</option>
           </select>
-          <button onClick={add} disabled={pending || !name.trim()} className="rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white px-3 py-1.5 text-xs">
+          <button onClick={add} disabled={pending || !name.trim()} className="rounded-lg bg-hovr hover:bg-hovr disabled:opacity-50 text-ink px-3 py-1.5 text-xs">
             Add
           </button>
         </span>
       </div>
-      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+      {error && <p className="text-sm text-bad mt-2">{error}</p>}
     </div>
   );
 }

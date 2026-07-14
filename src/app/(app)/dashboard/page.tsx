@@ -50,37 +50,48 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <h1 className="text-xl font-semibold">Dashboard</h1>
+
+      {/* Stat tiles */}
+      <div className="rounded-2xl border border-line bg-card grid grid-cols-2 lg:grid-cols-4 divide-x divide-line overflow-hidden">
         {locations.map((loc) => {
           const total = loc.rooms.length;
           const occupied = loc.rooms.filter((r) => r.reservations.length > 0).length;
+          const pct = total > 0 ? Math.round((occupied / total) * 100) : null;
           return (
-            <div key={loc.id} className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4">
-              <div className="text-sm text-zinc-400">{loc.name}</div>
-              <div className="text-2xl font-semibold text-white mt-1">
-                {total === 0 ? <span className="text-zinc-600 text-base">no rooms yet</span> : `${occupied}/${total}`}
+            <div key={loc.id} className="p-5">
+              <div className="label-mono mb-2">{loc.name}</div>
+              <div className="text-3xl font-semibold">
+                {total === 0 ? <span className="text-faint text-base">no rooms</span> : `${occupied}/${total}`}
               </div>
-              <div className="text-xs text-zinc-500 mt-1">{t(lang, "occupancy_today")}</div>
+              <div className="text-xs text-mut mt-1">
+                {pct !== null ? `${pct}% · ${t(lang, "occupancy_today")}` : "add rooms in Locations"}
+              </div>
+              {pct !== null && (
+                <div className="mt-3 h-1.5 rounded-full bg-hovr overflow-hidden">
+                  <div className="h-full bg-acc rounded-full" style={{ width: `${pct}%` }} />
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <Card title={`${t(lang, "arrivals_today")} (${arrivals.length})`}>
-          {arrivals.length === 0 && <Empty />}
+        <Card index="01" title={`${t(lang, "arrivals_today")} · ${arrivals.length}`}>
+          {arrivals.length === 0 && <Empty text="No arrivals today" />}
           {arrivals.map((r) => (
             <Row key={r.id} main={who(r)} sub={`${r.room.location.name} · ${r.room.name}`} />
           ))}
         </Card>
-        <Card title={`${t(lang, "departures_today")} (${departures.length})`}>
-          {departures.length === 0 && <Empty />}
+        <Card index="02" title={`${t(lang, "departures_today")} · ${departures.length}`}>
+          {departures.length === 0 && <Empty text="No departures today" />}
           {departures.map((r) => (
             <Row key={r.id} main={who(r)} sub={`${r.room.location.name} · ${r.room.name}`} />
           ))}
         </Card>
-        <Card title={`${t(lang, "standby_due")} (${standby.length})`} accent>
-          {standby.length === 0 && <Empty />}
+        <Card index="03" title={`${t(lang, "standby_due")} · ${standby.length}`} accent={standby.length > 0}>
+          {standby.length === 0 && <Empty text="Nothing to resolve" />}
           {standby.map((r) => (
             <Row
               key={r.id}
@@ -89,9 +100,10 @@ export default async function DashboardPage() {
             />
           ))}
           {standby.length > 0 && (
-            <p className="text-xs text-zinc-500 mt-2">
-              Standby guests with check-in within 7 days need a decision — confirm or send to partner hotel in the{" "}
-              <Link href="/calendar" className="text-sky-400 underline">
+            <p className="text-xs text-mut mt-2">
+              Standby guests with check-in within 7 days need a decision — confirm or send to the partner hotel in
+              the{" "}
+              <Link href="/calendar" className="text-acc underline">
                 calendar
               </Link>
               .
@@ -103,10 +115,23 @@ export default async function DashboardPage() {
   );
 }
 
-function Card({ title, children, accent }: { title: string; children: React.ReactNode; accent?: boolean }) {
+function Card({
+  index,
+  title,
+  children,
+  accent,
+}: {
+  index: string;
+  title: string;
+  children: React.ReactNode;
+  accent?: boolean;
+}) {
   return (
-    <div className={`rounded-2xl bg-zinc-900 border p-4 ${accent ? "border-amber-600/60" : "border-zinc-800"}`}>
-      <h2 className="text-sm font-medium text-zinc-300 mb-3">{title}</h2>
+    <div className={`rounded-2xl bg-card border p-4 ${accent ? "border-warn" : "border-line"}`}>
+      <h2 className="text-sm font-medium mb-3">
+        <span className="label-mono mr-2">{index}</span>
+        {title}
+      </h2>
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -114,13 +139,13 @@ function Card({ title, children, accent }: { title: string; children: React.Reac
 
 function Row({ main, sub }: { main: string; sub: string }) {
   return (
-    <div className="rounded-lg bg-zinc-800/60 px-3 py-2">
-      <div className="text-sm text-white">{main}</div>
-      <div className="text-xs text-zinc-400">{sub}</div>
+    <div className="rounded-lg bg-hovr px-3 py-2">
+      <div className="text-sm font-medium">{main}</div>
+      <div className="text-xs text-mut font-mono">{sub}</div>
     </div>
   );
 }
 
-function Empty() {
-  return <div className="text-sm text-zinc-600">—</div>;
+function Empty({ text }: { text: string }) {
+  return <div className="text-sm text-faint font-mono">{text}</div>;
 }
