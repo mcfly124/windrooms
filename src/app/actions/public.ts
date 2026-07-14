@@ -11,6 +11,7 @@ import {
   sendEmail,
 } from "@/lib/email";
 import { getEurRate, fmtPln } from "@/lib/currency";
+import { locationBalance } from "@/lib/credits";
 
 export type PublicBookingResult =
   | { ok: true; id: number; sig: string }
@@ -50,6 +51,21 @@ export async function createPublicBooking(input: {
       return { ok: false, error: "Those dates are not open for online booking — please pick closer dates" };
     }
 
+    // Existing client with night credits usable here? Those bookings go through the team.
+    const existingClient = await prisma.client.findFirst({
+      where: { email: { equals: guestEmail, mode: "insensitive" } },
+    });
+    if (existingClient) {
+      const { available } = await locationBalance(prisma, existingClient.id, room.locationId);
+      if (available > 0) {
+        const contact = process.env.PUBLIC_CONTACT_EMAIL ?? "pro@flyspot.pl";
+        return {
+          ok: false,
+          error: `This email has ${available} Flyspot night(s) available — stays using night credits are arranged by our team. Please write to ${contact} and we'll book your room.`,
+        };
+      }
+    }
+
     const nights = nightsBetween(input.checkIn, input.checkOut);
     const total = nights * Number(room.pricePln);
 
@@ -64,9 +80,23 @@ export async function createPublicBooking(input: {
       });
       if (conflict) throw new Error("Sorry, this room was just booked for those dates");
 
+      // Every public guest lives in the client DB, tagged EXTERNAL on first booking
+      const client =
+        existingClient ??
+        (await tx.client.create({
+          data: {
+            name: guestName,
+            email: guestEmail,
+            phone: input.guestPhone?.trim() || null,
+            category: "EXTERNAL",
+            notes: "Auto-created from public booking",
+          },
+        }));
+
       const reservation = await tx.reservation.create({
         data: {
           roomId: room.id,
+          clientId: client.id,
           guestName,
           guestEmail,
           guestPhone: input.guestPhone?.trim() || null,
@@ -92,7 +122,7 @@ export async function createPublicBooking(input: {
         data: {
           type: "booking.new",
           title: `New public booking ${bookingRef(reservation.id)} · ${guestName}`,
-          body: `Room ${room.name}, ${input.checkIn} → ${input.checkOut}, ${total.toLocaleString("pl-PL")} zł`,
+          body: `Room ${room.name}, ${input.checkIn} → ${input.checkOut}, ${total.toLocaleString("pl-PL")} zł${existingClient ? "" : " · new external client added"}`,
           reservationId: reservation.id,
         },
       });
