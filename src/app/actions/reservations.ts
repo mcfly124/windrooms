@@ -43,6 +43,28 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
     if (!input.clientId && !input.guestName?.trim()) {
       return { ok: false, error: "Pick a client or enter a guest name" };
     }
+    // Guests always become clients: email is mandatory so they land in the client DB
+    if (!input.clientId && input.guestName?.trim()) {
+      const guestEmail = input.guestEmail?.trim().toLowerCase() ?? "";
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guestEmail)) {
+        return { ok: false, error: "Enter the guest's email — it's needed to add them to the client list" };
+      }
+      const existing = await prisma.client.findFirst({
+        where: { email: { equals: guestEmail, mode: "insensitive" } },
+      });
+      const client =
+        existing ??
+        (await prisma.client.create({
+          data: {
+            name: input.guestName.trim(),
+            email: guestEmail,
+            phone: input.guestPhone?.trim() || null,
+            category: "EXTERNAL",
+            notes: "Auto-created from a manual booking",
+          },
+        }));
+      input = { ...input, clientId: client.id };
+    }
     if (input.usesCredits && !input.clientId) {
       return { ok: false, error: "Credits can only be used by a Flyspot client" };
     }

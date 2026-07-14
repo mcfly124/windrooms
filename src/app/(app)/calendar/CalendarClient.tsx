@@ -564,12 +564,12 @@ function ReservationModal({
         {!isFlyspot && (
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-3 sm:col-span-1">
-              <label className={label}>Guest name</label>
+              <label className={label}>Guest name *</label>
               <input disabled={!canEdit} className="field" value={form.guestName} onChange={(e) => setForm({ ...form, guestName: e.target.value })} />
             </div>
             <div>
-              <label className={label}>Email</label>
-              <input disabled={!canEdit} className="field" value={form.guestEmail} onChange={(e) => setForm({ ...form, guestEmail: e.target.value })} />
+              <label className={label}>Email * (adds them to clients)</label>
+              <input disabled={!canEdit} type="email" className="field" value={form.guestEmail} onChange={(e) => setForm({ ...form, guestEmail: e.target.value })} />
             </div>
             <div>
               <label className={label}>Phone</label>

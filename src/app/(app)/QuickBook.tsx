@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { clientBalanceAt, quickBook } from "@/app/actions/quickbook";
+import { saveClient } from "@/app/actions/clients";
 import DateRangePicker from "@/components/DateRangePicker";
 import { findAlternatives } from "@/app/actions/reservations";
 import TimeSelect from "@/components/TimeSelect";
@@ -33,15 +34,38 @@ function ClientPicker({
   value,
   onPick,
   placeholder,
+  allowCreate,
 }: {
   clients: ClientOpt[];
   value: ClientOpt | null;
   onPick: (c: ClientOpt | null) => void;
   placeholder: string;
+  allowCreate?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", category: "FLYSPOT" });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
+
+  function create() {
+    setCreateError(null);
+    startTransition(async () => {
+      const result = await saveClient({
+        name: newClient.name,
+        email: newClient.email,
+        phone: newClient.phone,
+        category: newClient.category as "FLYSPOT" | "EXTERNAL" | "COACH",
+      });
+      if (result.ok && result.id) {
+        onPick({ id: result.id, name: newClient.name.trim(), email: newClient.email.trim().toLowerCase() });
+        setCreating(false);
+        setQuery("");
+      } else if (!result.ok) setCreateError(result.error);
+    });
+  }
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -68,6 +92,31 @@ function ClientPicker({
     );
   }
 
+  if (creating) {
+    return (
+      <div className="rounded-xl border border-acc/50 bg-hovr p-3 space-y-2">
+        <div className="label-mono">New client — email is required</div>
+        <input className="field" placeholder="Full name" value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} />
+        <div className="grid grid-cols-2 gap-2">
+          <input type="email" className="field" placeholder="Email *" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
+          <input className="field" placeholder="Phone" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
+        </div>
+        <select className="field" value={newClient.category} onChange={(e) => setNewClient({ ...newClient, category: e.target.value })}>
+          <option value="FLYSPOT">Flyspot client</option>
+          <option value="EXTERNAL">External client</option>
+          <option value="COACH">Coach</option>
+        </select>
+        {createError && <p className="text-xs text-bad">{createError}</p>}
+        <div className="flex gap-2">
+          <button type="button" onClick={create} disabled={pending || !newClient.name.trim() || !newClient.email.trim()} className="btn-primary text-xs">
+            {pending ? "…" : "Add client"}
+          </button>
+          <button type="button" onClick={() => setCreating(false)} className="btn-ghost text-xs ml-auto">Back</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative" ref={ref}>
       <input
@@ -77,7 +126,7 @@ function ClientPicker({
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setFocus(true)}
       />
-      {focus && matches.length > 0 && (
+      {focus && (matches.length > 0 || (allowCreate && query.trim().length > 1)) && (
         <div className="absolute z-50 mt-1 w-full rounded-xl border border-line bg-card shadow-xl overflow-hidden max-h-56 overflow-y-auto">
           {matches.map((c) => (
             <button
@@ -94,6 +143,19 @@ function ClientPicker({
               {c.email && <div className="text-xs text-faint">{c.email}</div>}
             </button>
           ))}
+          {allowCreate && query.trim().length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                setNewClient({ name: query.trim(), email: "", phone: "", category: "FLYSPOT" });
+                setCreating(true);
+                setFocus(false);
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-hovr border-t border-line text-acc text-sm"
+            >
+              + Add “{query.trim()}” as a new client
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -250,7 +312,7 @@ function QuickBookModal({
 
         <div>
           <label className={label}>Client</label>
-          <ClientPicker clients={clients} value={client} onPick={setClient} placeholder="Start typing a name or email…" />
+          <ClientPicker clients={clients} value={client} onPick={setClient} placeholder="Start typing a name or email…" allowCreate />
           {client && balance !== null && (
             <p className="text-xs mt-1 text-mut">
               Night credits here: <b className={balance > 0 ? "text-ok" : "text-faint"}>{balance}</b>
