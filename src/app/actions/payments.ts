@@ -35,23 +35,6 @@ export async function recordPayment(input: {
     });
     await audit(session, "payment.record", "Payment", payment.id, `${input.amountPln} PLN, ${input.method}`);
     revalidatePath("/payments");
-    if (input.method === "PAYMENT_LINK" && !input.paid && input.clientId) {
-      const client = await prisma.client.findUnique({ where: { id: input.clientId } });
-      if (client?.email) {
-        const mail = paymentLinkEmail({
-          name: client.name,
-          amountLabel: `${input.amountPln.toLocaleString("pl-PL")} zł`,
-          payUrl: `${baseUrl()}${payLinkPath(payment.id)}`,
-          note: input.note,
-        });
-        const sent = await sendEmail({ to: client.email, ...mail });
-        if (!sent.sent) {
-          return { ok: false, error: `Payment saved, but the email to ${client.email} failed (${sent.error}) — use “copy link” in the table to send it manually` };
-        }
-      } else {
-        return { ok: false, error: "Payment saved, but the client has no email — use “copy link” in the table to send it manually" };
-      }
-    }
     return { ok: true, id: payment.id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
@@ -68,6 +51,37 @@ export async function setPaymentStatus(id: number, status: "PAID" | "CANCELLED" 
     await audit(session, "payment.status", "Payment", id, status);
     revalidatePath("/payments");
     return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
+  }
+}
+
+/** Emails the signed pay URL to the customer and stamps linkSentAt. */
+export async function sendPaymentLink(paymentId: number): Promise<ActionResult> {
+  try {
+    const session = await requireRole("OPERATOR", "ADMIN", "SUPERADMIN");
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { client: true, reservation: true },
+    });
+    if (!payment || payment.method !== "PAYMENT_LINK") return { ok: false, error: "Payment not found" };
+    if (payment.status !== "PENDING") return { ok: false, error: "This payment is not pending" };
+    const to = payment.client?.email ?? payment.reservation?.guestEmail;
+    const name = payment.client?.name ?? payment.reservation?.guestName ?? "there";
+    if (!to) return { ok: false, error: "No email on file for this payment — use copy link instead" };
+
+    const mail = paymentLinkEmail({
+      name,
+      amountLabel: `${Number(payment.amountPln).toLocaleString("pl-PL")} zł`,
+      payUrl: `${baseUrl()}${payLinkPath(payment.id)}`,
+      note: payment.note,
+    });
+    const sent = await sendEmail({ to, ...mail });
+    if (!sent.sent) return { ok: false, error: `Email to ${to} failed (${sent.error}) — use copy link instead` };
+    await prisma.payment.update({ where: { id: paymentId }, data: { linkSentAt: new Date() } });
+    await audit(session, "payment.link.send", "Payment", paymentId, `sent to ${to}`);
+    revalidatePath("/payments");
+    return { ok: true, id: paymentId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
   }

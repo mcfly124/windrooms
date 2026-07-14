@@ -34,6 +34,7 @@ export default async function PaymentsPage() {
         note: p.note,
         recordedBy: p.recordedBy?.name ?? null,
         payLink: p.method === "PAYMENT_LINK" && p.status === "PENDING" ? payLinkPath(p.id) : null,
+        linkSent: p.linkSentAt !== null,
         createdAt: p.createdAt.toISOString().slice(0, 16).replace("T", " "),
       }))}
     />

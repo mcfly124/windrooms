@@ -7,7 +7,6 @@ import { audit } from "@/lib/audit";
 import { chargeCredits, locationBalance } from "@/lib/credits";
 import { nightsBetween, parseYmd } from "@/lib/dates";
 import { payLinkPath } from "@/lib/booking";
-import { baseUrl, paymentLinkEmail, sendEmail } from "@/lib/email";
 
 export async function clientBalanceAt(clientId: number, locationId: number): Promise<number> {
   await requireRole("ADMIN", "SUPERADMIN");
@@ -16,7 +15,7 @@ export async function clientBalanceAt(clientId: number, locationId: number): Pro
 }
 
 export type QuickBookResult =
-  | { ok: true; id: number; payLink?: string; emailNote?: string }
+  | { ok: true; id: number; payLink?: string; paymentId?: number }
   | { ok: false; error: string };
 
 /**
@@ -140,24 +139,12 @@ export async function quickBook(input: {
     revalidatePath("/dashboard");
     revalidatePath("/payments");
 
-    let emailNote: string | undefined;
-    if (paymentId) {
-      if (client.email) {
-        const mail = paymentLinkEmail({
-          name: client.name,
-          amountLabel: `${Number(input.remainderAmountPln).toLocaleString("pl-PL")} zł`,
-          payUrl: `${baseUrl()}${payLinkPath(paymentId)}`,
-          note: `${remaining} night(s) at Flyspot ${room.location.name}`,
-        });
-        const sent = await sendEmail({ to: client.email, ...mail });
-        emailNote = sent.sent
-          ? `Payment link emailed to ${client.email}`
-          : `Email to ${client.email} failed (${sent.error}) — copy the link below and send it manually`;
-      } else {
-        emailNote = "Client has no email on file — copy the link below and send it manually";
-      }
-    }
-    return { ok: true, id, payLink: paymentId ? payLinkPath(paymentId) : undefined, emailNote };
+    return {
+      ok: true,
+      id,
+      payLink: paymentId ? payLinkPath(paymentId) : undefined,
+      paymentId: paymentId ?? undefined,
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
   }

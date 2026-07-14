@@ -210,6 +210,8 @@ model Payment {
   recordedBy    User?         @relation(fields: [recordedById], references: [id])
   createdAt     DateTime      @default(now())
   paidAt        DateTime?
+  // When the payment-link email was last sent to the customer
+  linkSentAt    DateTime?
 
   @@index([status])
 }

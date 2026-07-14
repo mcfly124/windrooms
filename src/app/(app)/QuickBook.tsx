@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { clientBalanceAt, quickBook } from "@/app/actions/quickbook";
+import { sendPaymentLink } from "@/app/actions/payments";
 import { saveClient } from "@/app/actions/clients";
 import DateRangePicker from "@/components/DateRangePicker";
 import { findAlternatives } from "@/app/actions/reservations";
@@ -195,7 +196,9 @@ function QuickBookModal({
 
   const [error, setError] = useState<string | null>(null);
   const [payLink, setPayLink] = useState<string | null>(null);
-  const [emailNote, setEmailNote] = useState<string | null>(null);
+  const [paymentId, setPaymentId] = useState<number | null>(null);
+  const [linkSent, setLinkSent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -265,7 +268,7 @@ function QuickBookModal({
       if (result.ok) {
         setSavedId(result.id);
         setPayLink(result.payLink ?? null);
-        setEmailNote(result.emailNote ?? null);
+        setPaymentId(result.paymentId ?? null);
         router.refresh();
       } else setError(result.error);
     });
@@ -283,11 +286,25 @@ function QuickBookModal({
           <h2 className="font-semibold">Booked — reservation #{savedId}</h2>
           {payLink && (
             <div className="space-y-2">
-              {emailNote && (
-                <p className={`text-sm rounded-lg px-3 py-2 ${emailNote.includes("failed") || emailNote.includes("no email") ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok"}`}>
-                  {emailNote}
-                </p>
+              {paymentId && (
+                <button
+                  disabled={pending || linkSent}
+                  onClick={() =>
+                    startTransition(async () => {
+                      setSendError(null);
+                      const r = await sendPaymentLink(paymentId);
+                      if (r.ok) setLinkSent(true);
+                      else setSendError(r.error);
+                    })
+                  }
+                  className={`w-full rounded-lg py-2 text-sm font-medium ${
+                    linkSent ? "bg-ok-soft text-ok" : "bg-acc hover:bg-acc-strong text-white"
+                  }`}
+                >
+                  {linkSent ? "✓ Payment link sent" : "Send payment link"}
+                </button>
               )}
+              {sendError && <p className="text-xs text-warn">{sendError}</p>}
               <p className="text-sm text-mut">Payment link:</p>
               <div className="flex items-center gap-2">
                 <input readOnly className="field font-mono text-xs" value={typeof window !== "undefined" ? window.location.origin + payLink : payLink} />

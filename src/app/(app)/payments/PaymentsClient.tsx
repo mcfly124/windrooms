@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { recordPayment, setPaymentStatus } from "@/app/actions/payments";
+import { recordPayment, setPaymentStatus, sendPaymentLink } from "@/app/actions/payments";
 import { fmtPln } from "@/lib/currency";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 
@@ -17,6 +17,7 @@ type PaymentRow = {
   recordedBy: string | null;
   createdAt: string;
   payLink: string | null;
+  linkSent: boolean;
 };
 
 export default function PaymentsClient({
@@ -55,6 +56,15 @@ export default function PaymentsClient({
   function mark(id: number, status: "PAID" | "CANCELLED") {
     startTransition(async () => {
       await setPaymentStatus(id, status);
+      router.refresh();
+    });
+  }
+
+  function sendLink(id: number) {
+    setError(null);
+    startTransition(async () => {
+      const result = await sendPaymentLink(id);
+      if (!result.ok) setError(result.error);
       router.refresh();
     });
   }
