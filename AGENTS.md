@@ -45,7 +45,7 @@ Next.js (App Router, Turbopack) · React 19 · Tailwind v4 · Neon Postgres + Pr
 `/book` (no auth) — Gdańsk only: search dates → available rooms (active + `pricePln` set, no CONFIRMED overlap, every night open per `dayOpenToPublic` in `src/lib/booking.ts`: planner override wins, else inside `releaseWindowDays`) → guest details + demo checkout (`src/app/actions/public.ts` creates CONFIRMED PUBLIC reservation + PAID payment marked "DEMO payment") → `/book/confirmed?id&sig` (HMAC `bookingSig`, prevents enumeration). Room prices editable per-room in Locations; `publicDescription` shown on the landing page. Real Stripe replaces the demo checkout later (`PAYMENTS_MODE` = demo|test|live).
 
 ## Planner (`/planner`, admins+)
-Per-room-per-day grid of public availability for public-enabled locations. `PublicOverride` rows flip a day away from the window default (OPEN beyond the window / CLOSED inside it); clicking cycles default → override → default (`togglePublicDay`). Booked days shown read-only.
+Month-paged (?month=YYYY-MM, ‹ › arrows) per-room-per-day grid of public availability for public-enabled locations. `PublicOverride` rows flip a day away from the window default (OPEN beyond the window / CLOSED inside it); clicking cycles default → override → default (`togglePublicDay`). Booked days shown read-only.
 
 ## Manage booking + inbox + email
 - Guests manage bookings at `/book/manage` with confirmation code (`bookingRef`, FR-00012 style) + email → signed `/book/manage/[id]?sig` page: change dates (delta > 0 creates a PAYMENT_LINK payment and emails the link; delta < 0 flags refund) or cancel. Only before check-in.
@@ -54,6 +54,9 @@ Per-room-per-day grid of public availability for public-enabled locations. `Publ
 - Clients have `category` (FLYSPOT | EXTERNAL | COACH), filterable on /clients.
 - Month calendar: clicking a day opens a right side panel (that night's reservations + free rooms with quick-create).
 
+## Booking conflicts
+`saveReservation` returns `{ conflict: true }` on room overlap; the calendar modal then calls `findAlternatives(locationId, in, out)` → free rooms (one-click rebook) or a split suggestion (all full at the start): `saveSplitStay` creates a HOTEL_OVERFLOW segment (`overflowHotel`: Arche/Hilton/Other) + a CONFIRMED segment from the first free date, charging credits for both if used. QuickBook disables occupied rooms up front via the same `findAlternatives`.
+
 ## Quick booking (header button, admins+)
 `QuickBook.tsx` modal + `src/app/actions/quickbook.ts`: client autocomplete, room, dates+times, and night coverage split across the client's own credits (auto-filled from balance), a donor client's credits, and a remainder via payment link or reception. Payment links: `payLinkPath(paymentId)` → `/pay/[id]?sig` (HMAC `payLinkSig`), public demo checkout marks the payment PAID (`payDemoLink`); Payments page shows "copy link" on pending PAYMENT_LINK rows.
 
@@ -61,7 +64,7 @@ Per-room-per-day grid of public availability for public-enabled locations. `Publ
 `/stats` (admins+) — occupancy % by location, Flyspot-vs-public room-nights, payments by month (chart.js + react-chartjs-2), tiles incl. credits granted/used and hotel-overflow cost.
 
 ## Shared components
-`src/components/DatePicker.tsx` (in-house popover calendar, "YYYY-MM-DD") and `TimeSelect.tsx` (24h, 30-min steps) — use these instead of native date/time inputs; native selects get styled via `select.field` in globals.css.
+`src/components/DatePicker.tsx` (single date), `DateRangePicker.tsx` (one calendar for check-in→check-out — use for stays), and `TimeSelect.tsx` (24h, 30-min steps) — use these instead of native date/time inputs; native selects get styled via `select.field` in globals.css.
 
 ## Planned (not built)
 Excel importer (waiting for a sample file) · real Stripe checkout for `/book` · Nuki lock API · tunnel-booking alerts (see coaching-booking's `src/lib/flyspot.ts`) · email notifications (booking confirmations, door codes, cleaning).

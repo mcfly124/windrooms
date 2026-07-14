@@ -95,6 +95,7 @@ export default async function CalendarPage({
         companionCount: r.companionCount,
         companionPayment: r.companionPayment,
         hotelOverflowCost: r.hotelOverflowCost ? Number(r.hotelOverflowCost) : null,
+        overflowHotel: r.overflowHotel,
         notes: r.notes,
       }))}
     />

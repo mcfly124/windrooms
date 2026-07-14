@@ -6,12 +6,10 @@ import PlannerClient from "./PlannerClient";
 
 export const dynamic = "force-dynamic";
 
-const DAYS = 35;
-
 export default async function PlannerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ loc?: string; start?: string }>;
+  searchParams: Promise<{ loc?: string; month?: string }>;
 }) {
   const session = (await getSession())!;
   if (!atLeast(session.user.role, "ADMIN")) redirect("/dashboard");
@@ -33,7 +31,10 @@ export default async function PlannerPage({
     );
   }
   const selected = locations.find((l) => l.slug === params.loc) ?? locations[0];
-  const start = /^\d{4}-\d{2}-\d{2}$/.test(params.start ?? "") ? params.start! : todayYmd();
+  const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? params.month! : todayYmd().slice(0, 7);
+  const start = `${month}-01`;
+  const [y, m] = month.split("-").map(Number);
+  const DAYS = new Date(Date.UTC(y, m, 0)).getUTCDate();
 
   const [rooms, reservations, overrides] = await Promise.all([
     prisma.room.findMany({
@@ -63,6 +64,7 @@ export default async function PlannerPage({
       locations={locations.map((l) => ({ id: l.id, name: l.name, slug: l.slug }))}
       selectedSlug={selected.slug}
       releaseWindowDays={selected.releaseWindowDays}
+      month={month}
       start={start}
       days={DAYS}
       rooms={rooms.map((r) => ({

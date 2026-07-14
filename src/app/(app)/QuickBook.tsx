@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { clientBalanceAt, quickBook } from "@/app/actions/quickbook";
-import DatePicker from "@/components/DatePicker";
+import DateRangePicker from "@/components/DateRangePicker";
+import { findAlternatives } from "@/app/actions/reservations";
 import TimeSelect from "@/components/TimeSelect";
 import { addDays, nightsBetween, todayYmd } from "@/lib/dates";
 import type { RoomType } from "@prisma/client";
@@ -121,6 +122,7 @@ function QuickBookModal({
   const [notes, setNotes] = useState("");
 
   const [balance, setBalance] = useState<number | null>(null);
+  const [freeRoomIds, setFreeRoomIds] = useState<Set<number> | null>(null);
   const [ownCredits, setOwnCredits] = useState(0);
   const [ownTouched, setOwnTouched] = useState(false);
   const [donor, setDonor] = useState<ClientOpt | null>(null);
@@ -137,6 +139,22 @@ function QuickBookModal({
   const nights = nightsBetween(checkIn, checkOut);
   const room = location?.rooms.find((r) => r.id === roomId);
   const remaining = Math.max(0, nights - ownCredits - donorNights);
+
+  // Which rooms are free for the chosen dates (occupied ones get disabled)
+  useEffect(() => {
+    let alive = true;
+    setFreeRoomIds(null);
+    findAlternatives(locationId, checkIn, checkOut).then((a) => {
+      if (!alive) return;
+      const free = new Set(a.freeRooms.map((r) => r.id));
+      setFreeRoomIds(free);
+      if (!free.has(roomId) && free.size > 0) setRoomId([...free][0]);
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationId, checkIn, checkOut]);
 
   // Balance lookup whenever client/location changes; default own credits to min(balance, nights)
   useEffect(() => {
@@ -260,18 +278,29 @@ function QuickBookModal({
           <div>
             <label className={label}>Room</label>
             <select className="field" value={roomId} onChange={(e) => setRoomId(Number(e.target.value))}>
-              {location?.rooms.map((r) => (
-                <option key={r.id} value={r.id}>{r.name} ({r.type.toLowerCase()})</option>
-              ))}
+              {location?.rooms.map((r) => {
+                const occupied = freeRoomIds !== null && !freeRoomIds.has(r.id);
+                return (
+                  <option key={r.id} value={r.id} disabled={occupied}>
+                    {r.name} ({r.type.toLowerCase()}){occupied ? " · occupied" : ""}
+                  </option>
+                );
+              })}
             </select>
+            {freeRoomIds !== null && freeRoomIds.size === 0 && (
+              <p className="text-xs text-warn mt-1">All rooms taken for these dates — use the calendar to book a split stay via a partner hotel.</p>
+            )}
           </div>
-          <div>
-            <label className={label}>Check-in</label>
-            <DatePicker value={checkIn} onChange={(v) => { setCheckIn(v); if (checkOut <= v) setCheckOut(addDays(v, 1)); }} />
-          </div>
-          <div>
-            <label className={label}>Check-out</label>
-            <DatePicker value={checkOut} min={addDays(checkIn, 1)} onChange={setCheckOut} />
+          <div className="col-span-2">
+            <label className={label}>Stay · check-in → check-out</label>
+            <DateRangePicker
+              checkIn={checkIn}
+              checkOut={checkOut}
+              onChange={(ci, co) => {
+                setCheckIn(ci);
+                setCheckOut(co);
+              }}
+            />
           </div>
           <div>
             <label className={label}>Arrival time</label>

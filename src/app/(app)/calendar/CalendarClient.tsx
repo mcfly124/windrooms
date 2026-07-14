@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveReservation, cancelReservation, type ReservationInput } from "@/app/actions/reservations";
+import { saveReservation, cancelReservation, findAlternatives, saveSplitStay, type Alternatives, type ReservationInput } from "@/app/actions/reservations";
 import { addDays, eachDay, nightsBetween, todayYmd } from "@/lib/dates";
-import DatePicker from "@/components/DatePicker";
+import DateRangePicker from "@/components/DateRangePicker";
 import TimeSelect from "@/components/TimeSelect";
 import type { CompanionPayment, ReservationSource, ReservationStatus, RoomType } from "@prisma/client";
 
@@ -29,6 +29,7 @@ type Res = {
   companionCount: number;
   companionPayment: CompanionPayment | null;
   hotelOverflowCost: number | null;
+  overflowHotel: string | null;
   notes: string | null;
 };
 
@@ -189,6 +190,7 @@ export default function CalendarClient(props: {
         <ReservationModal
           key={editing.id ?? `new-${editing.roomId}-${editing.checkIn}`}
           initial={editing}
+          locationId={props.locations.find((l) => l.slug === props.selectedSlug)?.id ?? 0}
           rooms={props.rooms}
           clients={props.clients}
           canEdit={props.canEdit}
@@ -389,6 +391,7 @@ function Legend({ className, label }: { className: string; label: string }) {
 
 function ReservationModal({
   initial,
+  locationId,
   rooms,
   clients,
   canEdit,
@@ -396,6 +399,7 @@ function ReservationModal({
   onSaved,
 }: {
   initial: Partial<Res> & { roomId?: number };
+  locationId: number;
   rooms: Room[];
   clients: { id: number; name: string }[];
   canEdit: boolean;
@@ -417,18 +421,22 @@ function ReservationModal({
     companionCount: initial.companionCount ?? 0,
     companionPayment: (initial.companionPayment ?? "RECEPTION") as CompanionPayment,
     hotelOverflowCost: initial.hotelOverflowCost ?? null,
+    overflowHotel: initial.overflowHotel ?? "",
     notes: initial.notes ?? "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [alts, setAlts] = useState<Alternatives | null>(null);
+  const [splitHotel, setSplitHotel] = useState("Arche");
   const [pending, startTransition] = useTransition();
   const nights = nightsBetween(form.checkIn, form.checkOut);
   const isFlyspot = form.clientId !== null;
 
-  function submit() {
+  function submit(roomOverride?: number) {
     setError(null);
+    setAlts(null);
     const input: ReservationInput = {
       id: initial.id,
-      roomId: form.roomId,
+      roomId: roomOverride ?? form.roomId,
       clientId: form.clientId,
       guestName: form.guestName,
       guestEmail: form.guestEmail,
@@ -443,10 +451,37 @@ function ReservationModal({
       companionCount: form.companionCount,
       companionPayment: form.companionCount > 0 ? form.companionPayment : null,
       hotelOverflowCost: form.hotelOverflowCost,
+      overflowHotel: form.overflowHotel || null,
       notes: form.notes,
     };
     startTransition(async () => {
       const result = await saveReservation(input);
+      if (result.ok) onSaved();
+      else {
+        setError(result.error);
+        if (result.conflict) {
+          setAlts(await findAlternatives(locationId, form.checkIn, form.checkOut));
+        }
+      }
+    });
+  }
+
+  function acceptSplit() {
+    if (!alts?.split || !form.clientId) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await saveSplitStay({
+        clientId: form.clientId!,
+        roomId: alts.split!.roomId,
+        splitDate: alts.split!.date,
+        checkIn: form.checkIn,
+        checkOut: form.checkOut,
+        checkInTime: form.checkInTime,
+        checkOutTime: form.checkOutTime,
+        usesCredits: form.usesCredits,
+        overflowHotel: splitHotel,
+        notes: form.notes,
+      });
       if (result.ok) onSaved();
       else setError(result.error);
     });
@@ -492,19 +527,14 @@ function ReservationModal({
               <option value="HOTEL_OVERFLOW">Hotel overflow (partner hotel)</option>
             </select>
           </div>
-          <div>
-            <label className={label}>Check-in</label>
-            <DatePicker
+          <div className="col-span-2">
+            <label className={label}>Stay · check-in → check-out</label>
+            <DateRangePicker
               disabled={!canEdit}
-              value={form.checkIn}
-              onChange={(v) =>
-                setForm({ ...form, checkIn: v, checkOut: form.checkOut <= v ? addDays(v, 1) : form.checkOut })
-              }
+              checkIn={form.checkIn}
+              checkOut={form.checkOut}
+              onChange={(ci, co) => setForm({ ...form, checkIn: ci, checkOut: co })}
             />
-          </div>
-          <div>
-            <label className={label}>Check-out</label>
-            <DatePicker disabled={!canEdit} value={form.checkOut} min={addDays(form.checkIn, 1)} onChange={(v) => setForm({ ...form, checkOut: v })} />
           </div>
           <div>
             <label className={label}>Arrival time</label>
@@ -588,8 +618,17 @@ function ReservationModal({
         )}
 
         {form.status === "HOTEL_OVERFLOW" && (
+          <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={label}>Partner hotel cost (PLN, paid by Flyspot)</label>
+            <label className={label}>Partner hotel</label>
+            <select disabled={!canEdit} className="field" value={form.overflowHotel || "Arche"} onChange={(e) => setForm({ ...form, overflowHotel: e.target.value })}>
+              <option value="Arche">Arche</option>
+              <option value="Hilton">Hilton</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={label}>Hotel cost (PLN, paid by Flyspot)</label>
             <input
               disabled={!canEdit}
               type="number"
@@ -600,6 +639,7 @@ function ReservationModal({
               onChange={(e) => setForm({ ...form, hotelOverflowCost: e.target.value ? Number(e.target.value) : null })}
             />
           </div>
+          </div>
         )}
 
         <div>
@@ -609,9 +649,58 @@ function ReservationModal({
 
         {error && <p className="text-sm text-bad">{error}</p>}
 
+        {alts && (
+          <div className="rounded-xl border border-warn bg-warn-soft/30 p-3 space-y-2">
+            {alts.freeRooms.length > 0 ? (
+              <>
+                <div className="label-mono">Free rooms for these dates — book one instead:</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {alts.freeRooms.map((r) => (
+                    <button
+                      key={r.id}
+                      disabled={pending}
+                      onClick={() => {
+                        setForm({ ...form, roomId: r.id });
+                        submit(r.id);
+                      }}
+                      className="rounded-lg border border-line bg-card px-2.5 py-1 text-xs hover:bg-hovr"
+                    >
+                      → {r.name} ({r.type.toLowerCase()})
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : alts.split && form.clientId ? (
+              <>
+                <div className="label-mono">All rooms full at the start — split the stay:</div>
+                <p className="text-sm">
+                  Partner hotel {form.checkIn} → {alts.split.date}, then room <b>{alts.split.roomName}</b>{" "}
+                  {alts.split.date} → {form.checkOut}.
+                </p>
+                <div className="flex items-center gap-2">
+                  <select className="field w-auto" value={splitHotel} onChange={(e) => setSplitHotel(e.target.value)}>
+                    <option value="Arche">Arche</option>
+                    <option value="Hilton">Hilton</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <button onClick={acceptSplit} disabled={pending} className="btn-primary text-xs">
+                    Book split stay
+                  </button>
+                </div>
+                <p className="text-xs text-mut">Book the hotel room at {splitHotel} separately — this records both segments here.</p>
+              </>
+            ) : (
+              <p className="text-sm">
+                No room is free for any part of these dates — book a partner hotel (Arche / Hilton) for the whole
+                stay and record it as a Hotel overflow reservation.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 pt-1">
           {canEdit && (
-            <button onClick={submit} disabled={pending} className="btn-primary">
+            <button onClick={() => submit()} disabled={pending} className="btn-primary">
               {pending ? "…" : "Save"}
             </button>
           )}

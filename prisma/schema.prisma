@@ -176,6 +176,7 @@ model Reservation {
   companionCount    Int               @default(0)
   companionPayment  CompanionPayment?
   hotelOverflowCost Decimal?          @db.Decimal(10, 2)
+  overflowHotel     String? // e.g. "Arche", "Hilton"
   notes             String?
 
   createdById Int?

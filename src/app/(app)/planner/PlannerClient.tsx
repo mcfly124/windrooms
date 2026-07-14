@@ -14,6 +14,7 @@ export default function PlannerClient(props: {
   locations: { id: number; name: string; slug: string }[];
   selectedSlug: string;
   releaseWindowDays: number;
+  month: string;
   start: string;
   days: number;
   rooms: Room[];
@@ -47,10 +48,22 @@ export default function PlannerClient(props: {
     return Math.round((new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400000);
   }
 
-  function go(next: { loc?: string; start?: string }) {
-    const q = new URLSearchParams({ loc: next.loc ?? props.selectedSlug, start: next.start ?? props.start });
+  function go(next: { loc?: string; month?: string }) {
+    const q = new URLSearchParams({ loc: next.loc ?? props.selectedSlug, month: next.month ?? props.month });
     router.push(`/planner?${q}`);
   }
+
+  function shiftMonth(delta: number) {
+    const d = new Date(`${props.month}-01T00:00:00Z`);
+    d.setUTCMonth(d.getUTCMonth() + delta);
+    go({ month: d.toISOString().slice(0, 7) });
+  }
+
+  const monthLabel = new Date(`${props.month}-01T00:00:00Z`).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 
   function toggle(roomId: number, day: string) {
     setError(null);
@@ -65,11 +78,11 @@ export default function PlannerClient(props: {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">Planner</h1>
-        <span className="label-mono">Public availability · {days[0]} → {days[days.length - 1]}</span>
+        <span className="label-mono">Public availability · {monthLabel}</span>
         <div className="ml-auto flex items-center gap-2">
-          <button className="btn-ghost px-2.5" onClick={() => go({ start: addDays(props.start, -7) })}>‹</button>
-          <button className="btn-ghost" onClick={() => go({ start: today })}>Today</button>
-          <button className="btn-ghost px-2.5" onClick={() => go({ start: addDays(props.start, 7) })}>›</button>
+          <button className="btn-ghost px-2.5" onClick={() => shiftMonth(-1)}>‹</button>
+          <button className="btn-ghost" onClick={() => go({ month: today.slice(0, 7) })}>{monthLabel === new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" }) ? "This month" : "Today"}</button>
+          <button className="btn-ghost px-2.5" onClick={() => shiftMonth(1)}>›</button>
         </div>
       </div>
 

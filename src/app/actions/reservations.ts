@@ -25,10 +25,11 @@ export type ReservationInput = {
   companionCount: number;
   companionPayment?: CompanionPayment | null;
   hotelOverflowCost?: number | null;
+  overflowHotel?: string | null;
   notes?: string;
 };
 
-export type ActionResult = { ok: true; id?: number } | { ok: false; error: string };
+export type ActionResult = { ok: true; id?: number } | { ok: false; error: string; conflict?: boolean };
 
 // Credits are consumed only for these statuses (standby holds nothing; overflow guests
 // still burn their nights — the tunnel covers the partner hotel).
@@ -71,7 +72,7 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
         });
         if (conflict) {
           const who = conflict.client?.name ?? conflict.guestName ?? "another guest";
-          throw new Error(`Room ${room.name} is already confirmed for ${who} in that period`);
+          throw new Error(`CONFLICT|Room ${room.name} is already confirmed for ${who} in that period`);
         }
       }
 
@@ -91,6 +92,7 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
         companionCount: input.companionCount,
         companionPayment: input.companionCount > 0 ? input.companionPayment ?? null : null,
         hotelOverflowCost: input.status === "HOTEL_OVERFLOW" ? input.hotelOverflowCost ?? null : null,
+        overflowHotel: input.status === "HOTEL_OVERFLOW" ? input.overflowHotel?.trim() || null : null,
         notes: input.notes?.trim() || null,
       };
 
@@ -138,7 +140,9 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
     revalidatePath("/dashboard");
     return { ok: true, id };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    const msg = e instanceof Error ? e.message : "Unexpected error";
+    if (msg.startsWith("CONFLICT|")) return { ok: false, error: msg.slice(9), conflict: true };
+    return { ok: false, error: msg };
   }
 }
 
@@ -159,5 +163,151 @@ export async function cancelReservation(id: number): Promise<ActionResult> {
     return { ok: true, id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
+  }
+}
+
+export type Alternatives = {
+  freeRooms: { id: number; name: string; type: string }[];
+  split: { date: string; roomId: number; roomName: string } | null;
+};
+
+/**
+ * When the wanted room is taken: which rooms at the location are free for the
+ * whole stay, and failing that, the earliest date from which some room is free
+ * for the remainder (first nights → partner hotel, rest → tunnel room).
+ */
+export async function findAlternatives(
+  locationId: number,
+  checkIn: string,
+  checkOut: string
+): Promise<Alternatives> {
+  await requireRole("ADMIN", "SUPERADMIN");
+  const rooms = await prisma.room.findMany({
+    where: { locationId, active: true },
+    orderBy: { name: "asc" },
+    include: {
+      reservations: {
+        where: {
+          status: "CONFIRMED",
+          checkIn: { lt: parseYmd(checkOut) },
+          checkOut: { gt: parseYmd(checkIn) },
+        },
+        select: { checkIn: true, checkOut: true },
+      },
+    },
+  });
+
+  const freeRooms = rooms
+    .filter((r) => r.reservations.length === 0)
+    .map((r) => ({ id: r.id, name: r.name, type: r.type as string }));
+
+  let split: Alternatives["split"] = null;
+  if (freeRooms.length === 0) {
+    const totalNights = nightsBetween(checkIn, checkOut);
+    outer: for (let i = 1; i < totalNights; i++) {
+      const day = new Date(parseYmd(checkIn));
+      day.setUTCDate(day.getUTCDate() + i);
+      const from = day.toISOString().slice(0, 10);
+      for (const r of rooms) {
+        const busy = r.reservations.some(
+          (res) => res.checkIn < parseYmd(checkOut) && res.checkOut > parseYmd(from)
+        );
+        if (!busy) {
+          split = { date: from, roomId: r.id, roomName: r.name };
+          break outer;
+        }
+      }
+    }
+  }
+  return { freeRooms, split };
+}
+
+/**
+ * Fully-booked start: first nights at a partner hotel (HOTEL_OVERFLOW), the rest
+ * as a normal confirmed stay in a room that frees up. One transaction, two
+ * reservations; credits (if used) cover both segments per the overflow rule.
+ */
+export async function saveSplitStay(input: {
+  clientId: number;
+  roomId: number;
+  splitDate: string;
+  checkIn: string;
+  checkOut: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  usesCredits: boolean;
+  overflowHotel: string;
+  notes?: string;
+}): Promise<ActionResult> {
+  try {
+    const session = await requireRole("ADMIN", "SUPERADMIN");
+    if (!(input.checkIn < input.splitDate && input.splitDate < input.checkOut)) {
+      return { ok: false, error: "Split date must fall inside the stay" };
+    }
+    const room = await prisma.room.findUnique({ where: { id: input.roomId } });
+    if (!room || !room.active) return { ok: false, error: "Room not found" };
+    const hotelNights = nightsBetween(input.checkIn, input.splitDate);
+    const roomNights = nightsBetween(input.splitDate, input.checkOut);
+
+    const ids = await prisma.$transaction(async (tx) => {
+      const conflict = await tx.reservation.findFirst({
+        where: {
+          roomId: room.id,
+          status: "CONFIRMED",
+          checkIn: { lt: parseYmd(input.checkOut) },
+          checkOut: { gt: parseYmd(input.splitDate) },
+        },
+      });
+      if (conflict) throw new Error(`CONFLICT|Room ${room.name} is no longer free from ${input.splitDate}`);
+
+      const overflow = await tx.reservation.create({
+        data: {
+          roomId: room.id,
+          clientId: input.clientId,
+          checkIn: parseYmd(input.checkIn),
+          checkOut: parseYmd(input.splitDate),
+          checkInTime: input.checkInTime ?? "15:00",
+          checkOutTime: "11:00",
+          status: "HOTEL_OVERFLOW",
+          source: "FLYSPOT",
+          usesCredits: input.usesCredits,
+          overflowHotel: input.overflowHotel.trim() || null,
+          notes: `${input.notes?.trim() ? input.notes.trim() + " · " : ""}Partner hotel until room frees up`,
+          createdById: session.user.id,
+        },
+      });
+      const stay = await tx.reservation.create({
+        data: {
+          roomId: room.id,
+          clientId: input.clientId,
+          checkIn: parseYmd(input.splitDate),
+          checkOut: parseYmd(input.checkOut),
+          checkInTime: "15:00",
+          checkOutTime: input.checkOutTime ?? "11:00",
+          status: "CONFIRMED",
+          source: "FLYSPOT",
+          usesCredits: input.usesCredits,
+          notes: input.notes?.trim() || null,
+          createdById: session.user.id,
+        },
+      });
+      if (input.usesCredits) {
+        await chargeCredits(tx, input.clientId, room.locationId, hotelNights, overflow.id, session.user.id,
+          `${hotelNights} night(s) at partner hotel (${input.overflowHotel})`);
+        await chargeCredits(tx, input.clientId, room.locationId, roomNights, stay.id, session.user.id,
+          `${roomNights} night(s), room ${room.name}`);
+      }
+      return [overflow.id, stay.id];
+    });
+
+    await audit(session, "reservation.split", "Reservation", ids[1],
+      `Split stay: hotel ${input.overflowHotel} ${input.checkIn} → ${input.splitDate}, room ${room.name} → ${input.checkOut}`);
+    revalidatePath("/calendar");
+    revalidatePath("/dashboard");
+    return { ok: true, id: ids[1] };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unexpected error";
+    if (msg.startsWith("CONFLICT|")) return { ok: false, error: msg.slice(9), conflict: true };
+    return { ok: false, error: msg };
   }
 }
