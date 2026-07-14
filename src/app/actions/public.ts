@@ -58,7 +58,7 @@ export async function createPublicBooking(input: {
     if (existingClient) {
       const { available } = await locationBalance(prisma, existingClient.id, room.locationId);
       if (available > 0) {
-        const contact = process.env.PUBLIC_CONTACT_EMAIL ?? "pro@flyspot.pl";
+        const contact = process.env.PUBLIC_CONTACT_EMAIL ?? "pro@flyspot.com";
         return {
           ok: false,
           error: `This email has ${available} Flyspot night(s) available — stays using night credits are arranged by our team. Please write to ${contact} and we'll book your room.`,
