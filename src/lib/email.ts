@@ -121,3 +121,19 @@ export function bookingCancelledEmail(b: { reference: string; guestName: string 
     `),
   };
 }
+
+export function userInviteEmail(u: {
+  name: string;
+  role: string;
+  setupUrl: string;
+  invitedBy: string;
+}): { subject: string; html: string } {
+  return {
+    subject: "You're invited to Flyspot Rooms",
+    html: wrap(`
+      <h2 style="font-size:18px;margin:0 0 6px">Hi ${u.name},</h2>
+      <p style="font-size:14px;color:#64748b">${u.invitedBy} added you to Flyspot Rooms as <b>${u.role.toLowerCase()}</b>. Set your password to get started — the link is valid for 7 days.</p>
+      <a href="${u.setupUrl}" style="display:block;background:#2563eb;color:#fff;text-decoration:none;text-align:center;border-radius:10px;padding:12px;font-size:14px;font-weight:600;margin-top:18px">Set your password</a>
+    `),
+  };
+}

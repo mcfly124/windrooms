@@ -60,7 +60,10 @@ model User {
   id           Int       @id @default(autoincrement())
   email        String    @unique
   name         String
-  passwordHash String
+  // Null until the user completes the emailed setup link
+  passwordHash String?
+  inviteToken     String?   @unique
+  inviteExpiresAt DateTime?
   role         Role
   // Operators belong to one location; admins/superadmin are global (null)
   locationId   Int?

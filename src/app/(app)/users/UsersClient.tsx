@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveUser } from "@/app/actions/admin";
+import { saveUser, resendInvite } from "@/app/actions/admin";
 import { impersonateAction } from "@/app/actions/session";
 import type { Role } from "@prisma/client";
 
@@ -14,6 +14,7 @@ type UserRow = {
   locationId: number | null;
   locationName: string | null;
   active: boolean;
+  invitePending: boolean;
 };
 
 export default function UsersClient({
@@ -27,11 +28,21 @@ export default function UsersClient({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Partial<UserRow> | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   function impersonate(id: number) {
     startTransition(async () => {
       await impersonateAction(id);
+    });
+  }
+
+  function reinvite(id: number) {
+    setNotice(null);
+    startTransition(async () => {
+      const result = await resendInvite(id);
+      setNotice(result.ok ? "Invite email sent again." : result.error);
+      router.refresh();
     });
   }
 
@@ -43,6 +54,8 @@ export default function UsersClient({
           + User
         </button>
       </div>
+
+      {notice && <p className="text-sm text-mut rounded-xl bg-hovr px-3 py-2">{notice}</p>}
 
       <div className="overflow-x-auto rounded-2xl border border-line">
         <table className="w-full text-sm">
@@ -69,9 +82,20 @@ export default function UsersClient({
                   }`}>{u.role.toLowerCase()}</span>
                 </td>
                 <td className="px-4 py-2 text-mut">{u.locationName ?? "all"}</td>
-                <td className="px-4 py-2 text-xs">{u.active ? <span className="text-ok">active</span> : <span className="text-faint">disabled</span>}</td>
+                <td className="px-4 py-2 text-xs">
+                  {!u.active ? (
+                    <span className="text-faint">disabled</span>
+                  ) : u.invitePending ? (
+                    <span className="px-2 py-0.5 rounded bg-warn-soft text-warn">invite pending</span>
+                  ) : (
+                    <span className="text-ok">active</span>
+                  )}
+                </td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">
-                  {u.id !== currentUserId && u.active && (
+                  {u.invitePending && u.active && (
+                    <button onClick={() => reinvite(u.id)} className="text-acc hover:underline text-xs mr-3">resend invite</button>
+                  )}
+                  {u.id !== currentUserId && u.active && !u.invitePending && (
                     <button onClick={() => impersonate(u.id)} className="text-warn hover:text-warn text-xs mr-3">impersonate</button>
                   )}
                   <button onClick={() => setEditing(u)} className="text-mut hover:text-ink text-xs">edit</button>
@@ -147,7 +171,7 @@ function UserModal({
           <div><label className={label}>Email</label><input className={input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
           <div>
             <label className={label}>Role</label>
-            <select className={input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
+            <select className="field" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
               <option value="OPERATOR">Operator</option>
               <option value="ADMIN">Admin</option>
               <option value="SUPERADMIN">Superadmin</option>
@@ -156,17 +180,23 @@ function UserModal({
           {form.role === "OPERATOR" && (
             <div>
               <label className={label}>Location</label>
-              <select className={input} value={form.locationId ?? ""} onChange={(e) => setForm({ ...form, locationId: e.target.value ? Number(e.target.value) : null })}>
+              <select className="field" value={form.locationId ?? ""} onChange={(e) => setForm({ ...form, locationId: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">—</option>
                 {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
           )}
         </div>
-        <div>
-          <label className={label}>{initial.id ? "New password (leave empty to keep)" : "Password"}</label>
-          <input type="password" className={input} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-        </div>
+        {initial.id ? (
+          <div>
+            <label className={label}>New password (leave empty to keep)</label>
+            <input type="password" className={input} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          </div>
+        ) : (
+          <p className="rounded-xl bg-acc-softer text-sm text-mut px-3 py-2">
+            No password needed — they&apos;ll receive an email with a link to set their own.
+          </p>
+        )}
         <label className="flex items-center gap-2 text-sm text-mut">
           <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
           Active

@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { hashPassword, requireRole } from "@/lib/auth";
+import { randomBytes } from "crypto";
+import { baseUrl, sendEmail, userInviteEmail } from "@/lib/email";
 import { audit } from "@/lib/audit";
 import type { Role, RoomType } from "@prisma/client";
 import type { ActionResult } from "./reservations";
@@ -85,13 +87,12 @@ export async function saveUser(input: {
   role: Role;
   locationId: number | null;
   active: boolean;
-  password?: string; // required on create, optional (reset) on edit
+  password?: string; // optional reset on edit; new users get an invite email instead
 }): Promise<ActionResult> {
   try {
     const session = await requireRole("SUPERADMIN");
     const email = input.email.trim().toLowerCase();
     if (!email || !input.name.trim()) return { ok: false, error: "Name and email are required" };
-    if (!input.id && !input.password) return { ok: false, error: "Password is required for a new user" };
     if (input.password && input.password.length < 8) {
       return { ok: false, error: "Password must be at least 8 characters" };
     }
@@ -103,12 +104,58 @@ export async function saveUser(input: {
       active: input.active,
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     };
-    const user = input.id
-      ? await prisma.user.update({ where: { id: input.id }, data })
-      : await prisma.user.create({ data: data as typeof data & { passwordHash: string } });
+    let user;
+    if (input.id) {
+      user = await prisma.user.update({ where: { id: input.id }, data });
+    } else {
+      // New users set their own password via an emailed 7-day link
+      const inviteToken = randomBytes(24).toString("hex");
+      user = await prisma.user.create({
+        data: {
+          ...data,
+          inviteToken,
+          inviteExpiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+        },
+      });
+      const invite = userInviteEmail({
+        name: user.name,
+        role: user.role,
+        setupUrl: `${baseUrl()}/setup/${inviteToken}`,
+        invitedBy: session.user.name,
+      });
+      await sendEmail({ to: email, ...invite });
+    }
     await audit(session, input.id ? "user.update" : "user.create", "User", user.id, `${email} (${input.role})`);
     revalidatePath("/users");
     return { ok: true, id: user.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
+  }
+}
+
+export async function resendInvite(userId: number): Promise<ActionResult> {
+  try {
+    const session = await requireRole("SUPERADMIN");
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return { ok: false, error: "User not found" };
+    if (user.passwordHash) return { ok: false, error: "This user already set a password" };
+    const inviteToken = randomBytes(24).toString("hex");
+    await prisma.user.update({
+      where: { id: userId },
+      data: { inviteToken, inviteExpiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000) },
+    });
+    const invite = userInviteEmail({
+      name: user.name,
+      role: user.role,
+      setupUrl: `${baseUrl()}/setup/${inviteToken}`,
+      invitedBy: session.user.name,
+    });
+    const sent = await sendEmail({ to: user.email, ...invite });
+    await audit(session, "user.invite.resend", "User", userId, user.email);
+    revalidatePath("/users");
+    return sent.sent
+      ? { ok: true, id: userId }
+      : { ok: false, error: `Invite refreshed but the email did not send (${sent.error}) — link: ${baseUrl()}/setup/${inviteToken}` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
   }

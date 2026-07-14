@@ -26,6 +26,7 @@ export default async function UsersPage() {
         locationId: u.locationId,
         locationName: u.location?.name ?? null,
         active: u.active,
+        invitePending: u.passwordHash === null,
       }))}
     />
   );
