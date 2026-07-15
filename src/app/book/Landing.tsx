@@ -64,7 +64,7 @@ const DICT = {
     pickDates: "Select check-in, then check-out",
     locTitle: "Getting here",
     locBody:
-      "Flyspot Gdańsk — a 5-minute drive from Gdańsk Lech Wałęsa Airport (GDN). Exact address and map go here.",
+      "Flyspot Gdańsk · Juliusza Słowackiego 197A, 80-298 Gdańsk — a 5-minute drive from Gdańsk Lech Wałęsa Airport (GDN).",
     footTimes: "Check-in from 15:00 · check-out by 11:00",
     footContact: "Contact: your@email.here · +48 ··· ··· ···",
     manageL: "Manage your booking",
@@ -129,7 +129,7 @@ const DICT = {
     pickDates: "Wybierz zameldowanie, potem wymeldowanie",
     locTitle: "Dojazd",
     locBody:
-      "Flyspot Gdańsk — 5 minut samochodem z lotniska Gdańsk im. Lecha Wałęsy (GDN). Tu dodamy dokładny adres i mapę.",
+      "Flyspot Gdańsk · Juliusza Słowackiego 197A, 80-298 Gdańsk — 5 minut samochodem z lotniska Gdańsk im. Lecha Wałęsy (GDN).",
     footTimes: "Zameldowanie od 15:00 · wymeldowanie do 11:00",
     footContact: "Kontakt: your@email.here · +48 ··· ··· ···",
     manageL: "Zarządzaj rezerwacją",
@@ -589,6 +589,16 @@ export default function Landing({
           <div>
             <h2 className="bk-serif bk-h2" style={{ textAlign: "left" }}>{t.locTitle}</h2>
             <p style={{ color: "var(--slate)", marginTop: 10 }}>{t.locBody}</p>
+            <p style={{ marginTop: 10 }}>
+              <a
+                href="https://maps.google.com/?q=Flyspot+Gda%C5%84sk,+Juliusza+S%C5%82owackiego+197A,+80-298+Gda%C5%84sk"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--nav)", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 3 }}
+              >
+                {lang === "en" ? "Open in Google Maps →" : "Otwórz w Mapach Google →"}
+              </a>
+            </p>
             <div className="bk-fact">✈ {t.b2}</div>
             <div className="bk-fact">🕐 {t.b3}</div>
           </div>
