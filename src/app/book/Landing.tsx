@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   createPublicBookingByType,
+  gdanskMonthAvailability,
   gdanskTypeAvailability,
   type TypeAvailability,
 } from "@/app/actions/public";
@@ -31,6 +32,9 @@ export default function Landing({
   const [room, setRoom] = useState<RoomType | null>(null);
   const [guest, setGuest] = useState({ name: "", email: "", phone: "" });
   const [avail, setAvail] = useState<TypeAvailability | null>(null);
+  // per-day count of any bookable room, merged across the months we've viewed
+  const [dayFree, setDayFree] = useState<Record<string, number>>({});
+  const loadedMonths = useRef<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<{ reference: string; roomName: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -76,6 +80,21 @@ export default function Landing({
       alive = false;
     };
   }, [start, end]);
+
+  // load which days have at least one free room for the month on view (cached per month)
+  useEffect(() => {
+    if (!bookingEnabled) return;
+    const key = `${viewY}-${viewM}`;
+    if (loadedMonths.current.has(key)) return;
+    loadedMonths.current.add(key);
+    let alive = true;
+    gdanskMonthAvailability(viewY, viewM + 1).then((r) => {
+      if (alive) setDayFree((prev) => ({ ...prev, ...r }));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [bookingEnabled, viewY, viewM]);
 
   const nights = useMemo(() => {
     if (!start || !end) return 0;
@@ -330,14 +349,16 @@ export default function Landing({
                     if (d === null) return <span key={i} />;
                     const dayIso = iso(d);
                     const past = dayIso < todayIso;
+                    // once the month has loaded, a 0 count means nothing is free that night
+                    const soldOut = !past && dayFree[dayIso] === 0;
                     const isEdge = dayIso === start || dayIso === end;
                     const inRange = start !== null && end !== null && dayIso > start && dayIso < end;
                     return (
                       <button
                         key={i}
-                        disabled={past}
+                        disabled={past || soldOut}
                         onClick={() => clickDay(dayIso)}
-                        className={`bk-day ${isEdge ? "edge" : ""} ${inRange ? "range" : ""}`}
+                        className={`bk-day ${isEdge ? "edge" : ""} ${inRange ? "range" : ""} ${soldOut ? "soldout" : ""}`}
                       >
                         {d}
                       </button>

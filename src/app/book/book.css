@@ -377,6 +377,10 @@
   opacity: 0.28;
   cursor: default;
 }
+.bk-day.soldout {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
 .bk-day.edge {
   background: var(--ora);
   color: #fff;
