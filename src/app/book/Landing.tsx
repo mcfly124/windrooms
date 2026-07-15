@@ -7,151 +7,7 @@ import {
   gdanskTypeAvailability,
   type TypeAvailability,
 } from "@/app/actions/public";
-
-type Lang = "en" | "pl";
-type Cur = "pln" | "eur";
-type RoomType = "SINGLE" | "DOUBLE";
-
-/* Copy from the design handoff — verbatim, plus keys for the live backend. */
-const DICT = {
-  en: {
-    kicker: "Rooms at Flyspot Gdańsk",
-    titleA: "A ready room, whenever you land.",
-    sub: "Six self check-in rooms inside the Flyspot building, seven minutes walk from Gdańsk Airport. Your door code works around the clock — no reception, no waiting.",
-    b1: "Self check-in with door code",
-    b2: "5 min from Gdańsk Airport (GDN)",
-    b3: "Open 24/7",
-    cta: "Book now",
-    roomsTitle: "Two ways to stay",
-    roomsSub: "Six rooms in total — three singles, three doubles.",
-    singleName: "Single room",
-    singleDesc: "Everything one traveller needs — compact, quiet, yours.",
-    doubleName: "Double room",
-    doubleDesc: "Room for two — or extra space for one.",
-    chipWifi: "Fast Wi-Fi",
-    chipCode: "Door-code entry",
-    chipGuests1: "1 guest",
-    chipGuests2: "2 guests",
-    availOfType: "rooms of this type",
-    perNight: "/ night",
-    select: "Book this room",
-    howTitle: "Self check-in, step by step",
-    s1t: "Book online",
-    s1d: "Pick your dates and room — it takes two minutes.",
-    s2t: "Get your door code",
-    s2d: "Your personal code arrives by email before check-in at 15:00.",
-    s3t: "Walk in — any hour",
-    s3d: "The building and your room open with your code, day or night.",
-    whyTitle: "Premium rooms, smarter price",
-    whyBody:
-      "Our rooms live inside the Flyspot indoor-skydiving building. The wind tunnel runs on a dynamic schedule, so at times — late at night or early in the morning — you may hear it at work. That is exactly why fully automated, hotel-grade rooms cost less here. Light sleeper? Message us and we will pick the quietest room for you.",
-    bookTitle: "Book your stay",
-    stepOf: (n: number) => `Step ${n} of 4`,
-    continueL: "Continue",
-    backL: "Back",
-    chooseRoom: "Choose your room",
-    detailsL: "Your details",
-    nameL: "Full name",
-    emailL: "Email",
-    phoneL: "Phone",
-    confirmBtn: "Confirm booking",
-    confTitle: "You are booked!",
-    confBody:
-      "A confirmation email with this code is on its way. Your door code arrives by email before check-in at 15:00.",
-    codeLbl: "Your confirmation code",
-    totalL: "Total",
-    restartL: "Make another booking",
-    pickDates: "Select check-in, then check-out",
-    locTitle: "Getting here",
-    locBody:
-      "Flyspot Gdańsk · Juliusza Słowackiego 197A, 80-298 Gdańsk — a 5-minute drive from Gdańsk Lech Wałęsa Airport (GDN).",
-    footTimes: "Check-in from 15:00 · check-out by 11:00",
-    footContact: "Contact: your@email.here · +48 ··· ··· ···",
-    manageL: "Manage your booking",
-    phHero: "Drop a photo — building or rooms",
-    phSingle: "Single room photo",
-    phDouble: "Double room photo",
-    phLoc: "Location photo or map",
-    checking: "Checking availability…",
-    freeNow: (n: number) => `${n} free`,
-    noneFree: "Not available for these dates",
-    booking: "Booking…",
-    months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-    dows: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
-  },
-  pl: {
-    kicker: "Pokoje w Flyspot Gdańsk",
-    titleA: "Cichy pokój, o każdej porze.",
-    sub: "Sześć pokoi z samodzielnym zameldowaniem w budynku Flyspot, pięć minut od gdańskiego lotniska. Twój kod do drzwi działa całą dobę — bez recepcji, bez czekania.",
-    b1: "Samodzielne zameldowanie kodem",
-    b2: "5 min od lotniska Gdańsk (GDN)",
-    b3: "Dostęp 24/7",
-    cta: "Zarezerwuj",
-    roomsTitle: "Dwa rodzaje pokoi",
-    roomsSub: "Łącznie sześć pokoi — trzy 1-osobowe i trzy 2-osobowe.",
-    singleName: "Pokój 1-osobowy",
-    singleDesc: "Wszystko, czego potrzebuje jeden podróżny — kompaktowo i cicho.",
-    doubleName: "Pokój 2-osobowy",
-    doubleDesc: "Miejsce dla dwojga — albo więcej przestrzeni dla jednej osoby.",
-    chipWifi: "Szybkie Wi-Fi",
-    chipCode: "Wejście na kod",
-    chipGuests1: "1 osoba",
-    chipGuests2: "2 osoby",
-    availOfType: "pokoje tego typu",
-    perNight: "/ noc",
-    select: "Zarezerwuj ten pokój",
-    howTitle: "Zameldowanie krok po kroku",
-    s1t: "Zarezerwuj online",
-    s1d: "Wybierz daty i pokój — to dwie minuty.",
-    s2t: "Odbierz kod do drzwi",
-    s2d: "Twój osobisty kod przyjdzie e-mailem przed zameldowaniem o 15:00.",
-    s3t: "Wejdź o dowolnej porze",
-    s3d: "Budynek i pokój otwierasz kodem — w dzień i w nocy.",
-    whyTitle: "Pokoje premium w rozsądnej cenie",
-    whyBody:
-      "Nasze pokoje znajdują się w budynku tunelu aerodynamicznego Flyspot. Tunel pracuje według dynamicznego grafiku, więc czasem — późną nocą lub wcześnie rano — może być słyszalny. Właśnie dlatego w pełni zautomatyzowane pokoje o hotelowym standardzie kosztują u nas mniej. Masz lekki sen? Napisz do nas, a wybierzemy najcichszy pokój.",
-    bookTitle: "Zarezerwuj pobyt",
-    stepOf: (n: number) => `Krok ${n} z 4`,
-    continueL: "Dalej",
-    backL: "Wstecz",
-    chooseRoom: "Wybierz pokój",
-    detailsL: "Twoje dane",
-    nameL: "Imię i nazwisko",
-    emailL: "E-mail",
-    phoneL: "Telefon",
-    confirmBtn: "Potwierdź rezerwację",
-    confTitle: "Rezerwacja potwierdzona!",
-    confBody:
-      "E-mail z potwierdzeniem i tym kodem jest w drodze. Kod do drzwi przyjdzie e-mailem przed zameldowaniem o 15:00.",
-    codeLbl: "Twój kod potwierdzenia",
-    totalL: "Razem",
-    restartL: "Nowa rezerwacja",
-    pickDates: "Wybierz zameldowanie, potem wymeldowanie",
-    locTitle: "Dojazd",
-    locBody:
-      "Flyspot Gdańsk · Juliusza Słowackiego 197A, 80-298 Gdańsk — 5 minut samochodem z lotniska Gdańsk im. Lecha Wałęsy (GDN).",
-    footTimes: "Zameldowanie od 15:00 · wymeldowanie do 11:00",
-    footContact: "Kontakt: your@email.here · +48 ··· ··· ···",
-    manageL: "Zarządzaj rezerwacją",
-    phHero: "Upuść zdjęcie — budynek lub pokoje",
-    phSingle: "Zdjęcie pokoju 1-os.",
-    phDouble: "Zdjęcie pokoju 2-os.",
-    phLoc: "Zdjęcie lokalizacji lub mapa",
-    checking: "Sprawdzanie dostępności…",
-    freeNow: (n: number) => `wolne: ${n}`,
-    noneFree: "Brak dostępności w tych terminach",
-    booking: "Rezerwuję…",
-    months: ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"],
-    dows: ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"],
-  },
-} as const;
-
-function PhotoSlot({ src, alt, label }: { src: string; alt: string; label: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return <div className="bk-photoph">{label}</div>;
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} className="bk-photo" onError={() => setFailed(true)} loading="lazy" />;
-}
+import { DICT, PhotoSlot, type Cur, type Lang, type RoomType } from "./shared";
 
 export default function Landing({
   todayIso,
@@ -260,12 +116,7 @@ export default function Landing({
     }
   }
 
-  function scrollToBook(preselect?: RoomType) {
-    if (preselect) {
-      setRoom(preselect);
-      if (start && end) setStep(3);
-      else setStep(1);
-    }
+  function scrollToBook() {
     const el = document.getElementById("book");
     if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 60, behavior: "smooth" });
   }
@@ -396,7 +247,7 @@ export default function Landing({
                       <span className="bk-minichip">{info?.count ?? 0} {t.availOfType}</span>
                     </div>
                     <div style={{ marginTop: "auto" }}>
-                      <button className="bk-cta sq" onClick={() => scrollToBook(r.type)}>{t.select}</button>
+                      <Link href={`/book/${r.type.toLowerCase()}`} className="bk-cta sq">{t.select}</Link>
                     </div>
                   </div>
                 </div>
@@ -495,8 +346,8 @@ export default function Landing({
                 </div>
                 <div className="bk-cal-foot">
                   <span className="bk-rangelbl">{rangeLabel}</span>
-                  <button className="bk-cta" disabled={!start || !end} onClick={() => setStep(room ? 3 : 2)}>
-                    {t.continueL}
+                  <button className="bk-cta" disabled={!start || !end} onClick={() => setStep(2)}>
+                    {t.checkAvailL}
                   </button>
                 </div>
                 <div className="bk-smallprint">{t.footTimes}</div>

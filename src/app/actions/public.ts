@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { nightsBetween, parseYmd, todayYmd, ymd } from "@/lib/dates";
-import { bookingRef, bookingSig, payLinkPath, publicAvailableRooms, stayOpenForRoom, validStayDates } from "@/lib/booking";
+import { bookingRef, bookingSig, dayOpenToPublic, payLinkPath, publicAvailableRooms, stayOpenForRoom, validStayDates } from "@/lib/booking";
 import {
   baseUrl,
   bookingCancelledEmail,
@@ -350,4 +350,47 @@ export async function createPublicBookingByType(input: {
   });
   if (!result.ok) return result;
   return { ok: true, id: result.id, sig: result.sig, reference: bookingRef(result.id), roomName: room.name };
+}
+
+/** Per-day free-room counts for one room type at Gdańsk, for a whole month (room detail calendar). */
+export async function typeMonthAvailability(
+  type: "SINGLE" | "DOUBLE",
+  year: number,
+  month: number // 1-12
+): Promise<Record<string, number>> {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return {};
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 1));
+  const location = await prisma.location.findUnique({
+    where: { slug: "gdansk" },
+    include: {
+      rooms: {
+        where: { active: true, type, pricePln: { not: null } },
+        include: {
+          reservations: {
+            where: { status: "CONFIRMED", checkIn: { lt: monthEnd }, checkOut: { gt: monthStart } },
+            select: { checkIn: true, checkOut: true },
+          },
+          publicOverrides: { where: { date: { gte: monthStart, lt: monthEnd } } },
+        },
+      },
+    },
+  });
+  if (!location || !location.active || !location.publicBookingEnabled) return {};
+
+  const out: Record<string, number> = {};
+  const daysIn = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  for (let d = 1; d <= daysIn; d++) {
+    const day = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const dayDate = new Date(`${day}T00:00:00Z`);
+    let free = 0;
+    for (const room of location.rooms) {
+      const busy = room.reservations.some((r) => r.checkIn <= dayDate && r.checkOut > dayDate);
+      if (busy) continue;
+      const override = room.publicOverrides.find((o) => o.date.getTime() === dayDate.getTime())?.state;
+      if (dayOpenToPublic(day, location.releaseWindowDays, override)) free++;
+    }
+    out[day] = free;
+  }
+  return out;
 }
