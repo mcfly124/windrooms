@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { nightsBetween, parseYmd, todayYmd, ymd } from "@/lib/dates";
-import { bookingRef, bookingSig, payLinkPath, stayOpenForRoom, validStayDates } from "@/lib/booking";
+import { bookingRef, bookingSig, payLinkPath, publicAvailableRooms, stayOpenForRoom, validStayDates } from "@/lib/booking";
 import {
   baseUrl,
   bookingCancelledEmail,
@@ -297,4 +297,57 @@ export async function cancelPublicBooking(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };
   }
+}
+
+// ---- room-type flow for the /book landing (design: guests pick a type, we assign a room) ----
+
+export type TypeAvailability = {
+  ok: boolean;
+  types: { type: "SINGLE" | "DOUBLE"; pricePln: number; free: number }[];
+};
+
+export async function gdanskTypeAvailability(checkIn: string, checkOut: string): Promise<TypeAvailability> {
+  if (validStayDates(checkIn, checkOut)) return { ok: false, types: [] };
+  const result = await publicAvailableRooms("gdansk", checkIn, checkOut);
+  if (!result) return { ok: false, types: [] };
+  const types: TypeAvailability["types"] = [];
+  for (const type of ["SINGLE", "DOUBLE"] as const) {
+    const rooms = result.rooms.filter((r) => r.type === type);
+    if (rooms.length > 0) {
+      types.push({ type, pricePln: Number(rooms[0].pricePln), free: rooms.length });
+    } else {
+      types.push({ type, pricePln: 0, free: 0 });
+    }
+  }
+  return { ok: true, types };
+}
+
+export type TypeBookingResult =
+  | { ok: true; id: number; sig: string; reference: string; roomName: string }
+  | { ok: false; error: string };
+
+/** Books the first free room of the requested type at Gdańsk (all normal rules apply). */
+export async function createPublicBookingByType(input: {
+  type: "SINGLE" | "DOUBLE";
+  checkIn: string;
+  checkOut: string;
+  guestName: string;
+  guestEmail: string;
+  guestPhone?: string;
+}): Promise<TypeBookingResult> {
+  const availability = await publicAvailableRooms("gdansk", input.checkIn, input.checkOut);
+  const room = availability?.rooms.find((r) => r.type === input.type);
+  if (!room) {
+    return { ok: false, error: "No rooms of this type are free for those dates — please pick different dates" };
+  }
+  const result = await createPublicBooking({
+    roomId: room.id,
+    checkIn: input.checkIn,
+    checkOut: input.checkOut,
+    guestName: input.guestName,
+    guestEmail: input.guestEmail,
+    guestPhone: input.guestPhone,
+  });
+  if (!result.ok) return result;
+  return { ok: true, id: result.id, sig: result.sig, reference: bookingRef(result.id), roomName: room.name };
 }

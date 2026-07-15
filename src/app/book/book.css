@@ -1,0 +1,556 @@
+/* Windrooms /book landing — design tokens from the Claude Design handoff.
+   Fixed light palette (does not follow the app dark mode). Prefix: bk- */
+
+.bk {
+  --nav: #1a2e40;
+  --ora: #c96f4a;
+  --ora-hover: #b05a37;
+  --slate: #5a6b7c;
+  --off: #f5f7fa;
+  --line: rgba(26, 46, 64, 0.12);
+  --line-strong: rgba(26, 46, 64, 0.2);
+  background: #fff;
+  color: var(--nav);
+  font-family: var(--font-grotesk), system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.bk ::selection {
+  background: rgba(201, 111, 74, 0.25);
+}
+
+.bk-serif {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 400;
+}
+
+.bk-wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.bk-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--slate);
+}
+
+/* header */
+.bk-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.bk-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+}
+.bk-wordmark {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.bk-pillgroup {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 3px;
+}
+.bk-pill {
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate);
+  min-height: 32px;
+}
+.bk-pill.on {
+  background: var(--nav);
+  color: #fff;
+}
+
+/* buttons */
+.bk-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ora);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  border-radius: 999px;
+  padding: 10px 22px;
+  min-height: 44px;
+  transition: background 0.15s;
+}
+.bk-cta:hover {
+  background: var(--ora-hover);
+}
+.bk-cta.sq {
+  border-radius: 10px;
+  width: 100%;
+  min-height: 46px;
+}
+.bk-cta:disabled {
+  background: #c8cfd6;
+  cursor: not-allowed;
+}
+.bk-back {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--slate);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bk-back:hover {
+  color: var(--nav);
+}
+
+/* hero */
+.bk-hero {
+  padding: clamp(40px, 7vw, 72px) 0 56px;
+  text-align: center;
+}
+.bk-h1 {
+  font-size: clamp(36px, 6vw, 60px);
+  line-height: 1.05;
+  margin: 14px 0 18px;
+}
+.bk-sub {
+  font-size: 17px;
+  color: var(--slate);
+  max-width: 620px;
+  margin: 0 auto 26px;
+}
+.bk-chips {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 34px;
+}
+.bk-chip {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.bk-heroimg {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  height: clamp(280px, 45vw, 440px);
+}
+.bk-heroimg > .bk-par {
+  position: absolute;
+  inset: -12% 0;
+  will-change: transform;
+}
+
+/* photo slots */
+.bk-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bk-photoph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--off);
+  color: var(--slate);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* sections */
+.bk-section {
+  padding: 56px 0;
+}
+.bk-section.off {
+  background: var(--off);
+}
+.bk-h2 {
+  font-size: clamp(30px, 4.5vw, 40px);
+  line-height: 1.1;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.bk-h2sub {
+  text-align: center;
+  color: var(--slate);
+  margin-bottom: 36px;
+}
+
+/* room cards */
+.bk-rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.bk-roomcard {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.bk-roomcard .ph {
+  height: 220px;
+}
+.bk-roombody {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+.bk-roomname {
+  font-size: 25px;
+}
+.bk-pricetag {
+  background: rgba(201, 111, 74, 0.12);
+  border-radius: 8px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.bk-pricetag b {
+  font-size: 20px;
+  font-weight: 700;
+}
+.bk-pricetag span {
+  color: var(--slate);
+  font-size: 13px;
+}
+.bk-minichips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.bk-minichip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--slate);
+}
+
+/* how-to */
+.bk-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+  max-width: 960px;
+  margin: 0 auto 28px;
+}
+.bk-stepcard {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+}
+.bk-stepnum {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.bk-note {
+  background: var(--off);
+  border-radius: 16px;
+  padding: 22px 24px;
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.bk-note .ico {
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+/* booking section */
+.bk-book {
+  background: var(--nav);
+  color: #fff;
+  padding: 56px 0;
+  scroll-margin-top: 60px;
+}
+.bk-bookhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 660px;
+  margin: 0 auto 20px;
+  flex-wrap: wrap;
+}
+.bk-bookhead .bk-h2b {
+  font-size: clamp(30px, 4.5vw, 40px);
+  line-height: 1.1;
+}
+.bk-stepcount {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  font-weight: 600;
+}
+.bk-card {
+  background: #fff;
+  color: var(--nav);
+  border-radius: 16px;
+  max-width: 660px;
+  margin: 0 auto;
+  padding: clamp(18px, 4vw, 28px);
+}
+
+/* calendar */
+.bk-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.bk-cal-nav {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  font-size: 18px;
+  color: var(--nav);
+}
+.bk-cal-nav:hover {
+  background: var(--off);
+}
+.bk-cal-nav:disabled {
+  opacity: 0.3;
+}
+.bk-cal-month {
+  font-weight: 700;
+  font-size: 16px;
+}
+.bk-dows,
+.bk-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.bk-dows div {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--slate);
+  padding: 6px 0;
+}
+.bk-day {
+  height: 44px;
+  line-height: 44px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  color: var(--nav);
+}
+.bk-day:hover:not(:disabled):not(.edge):not(.range) {
+  background: var(--off);
+}
+.bk-day:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+.bk-day.edge {
+  background: var(--ora);
+  color: #fff;
+  font-weight: 700;
+}
+.bk-day.range {
+  background: rgba(201, 111, 74, 0.16);
+  border-radius: 0;
+}
+.bk-cal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.bk-rangelbl {
+  font-weight: 600;
+  font-size: 15px;
+}
+.bk-smallprint {
+  font-size: 13px;
+  color: var(--slate);
+  margin-top: 12px;
+}
+
+/* step 2 room rows */
+.bk-roomrow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.bk-roomrow.on {
+  border-color: var(--ora);
+  background: rgba(201, 111, 74, 0.07);
+}
+.bk-roomrow:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.bk-roomrow .nm {
+  font-weight: 700;
+  font-size: 16px;
+}
+.bk-roomrow .meta {
+  font-size: 13px;
+  color: var(--slate);
+}
+.bk-roomrow .pr {
+  font-weight: 700;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+/* step 3 */
+.bk-summary {
+  background: var(--off);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 14px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+.bk-summary b.total {
+  font-size: 16px;
+}
+.bk-fld {
+  margin-bottom: 14px;
+}
+.bk-fld label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.bk-fld input {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--nav);
+  background: #fff;
+  outline: none;
+}
+.bk-fld input:focus {
+  border-color: var(--nav);
+}
+.bk-err {
+  color: #b3261e;
+  font-size: 14px;
+  margin: 10px 0;
+}
+
+/* step 4 */
+.bk-codecard {
+  background: var(--nav);
+  color: #fff;
+  border-radius: 12px;
+  text-align: center;
+  padding: 22px;
+  margin: 20px 0;
+}
+.bk-codecard .lbl {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 8px;
+}
+.bk-codecard .code {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+}
+
+/* location */
+.bk-loc {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 32px;
+  align-items: center;
+}
+.bk-loc .ph {
+  height: 300px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.bk-fact {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 600;
+  font-size: 15px;
+  margin-top: 12px;
+}
+
+/* footer */
+.bk-footer {
+  background: var(--nav);
+  color: #fff;
+  padding: 26px 0;
+  font-size: 13px;
+}
+.bk-footer .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.bk-footer a {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bk-footer a:hover {
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bk-heroimg > .bk-par {
+    transform: none !important;
+  }
+}
