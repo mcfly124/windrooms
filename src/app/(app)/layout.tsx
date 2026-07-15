@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getSession, atLeast } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeLang, t } from "@/lib/i18n";
+import { todayYmd } from "@/lib/dates";
 import HeaderControls from "./HeaderControls";
 import SidebarNav from "./SidebarNav";
 import QuickBook from "./QuickBook";
@@ -74,7 +75,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : [[], []];
 
   // Header clock follows Warsaw, like all business dates
-  const warsawToday = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Warsaw" });
+  const warsawToday = todayYmd();
   const now = new Date(`${warsawToday}T00:00:00Z`);
   const week = Math.ceil(
     ((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86400000 + new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).getUTCDay() + 1) / 7
