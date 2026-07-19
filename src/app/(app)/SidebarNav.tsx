@@ -37,6 +37,9 @@ const ICONS: Record<string, React.ReactNode> = {
   mail: (
     <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6" />
   ),
+  trend: (
+    <path d="m3 17 6-6 4 4 8-8M15 7h6v6" />
+  ),
 };
 
 export default function SidebarNav({

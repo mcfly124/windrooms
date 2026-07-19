@@ -1,5 +1,6 @@
 import { Instrument_Serif, Space_Grotesk } from "next/font/google";
 import "./book.css";
+import Track from "./Track";
 
 const serif = Instrument_Serif({
   weight: "400",
@@ -21,5 +22,10 @@ export const metadata = {
 };
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  return <div className={`${serif.variable} ${grotesk.variable} min-h-screen`}>{children}</div>;
+  return (
+    <div className={`${serif.variable} ${grotesk.variable} min-h-screen`}>
+      <Track />
+      {children}
+    </div>
+  );
 }

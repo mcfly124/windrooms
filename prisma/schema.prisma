@@ -292,3 +292,25 @@ model Setting {
   key   String @id
   value String
 }
+
+// Cookieless first-party analytics for the public /book site: one row per page
+// view. `visitor` is a daily-rotating salted hash of IP+user-agent — it groups
+// a person's views within one day and is unlinkable across days, so no IP or
+// other personal data is ever stored (no consent banner needed).
+model PageView {
+  id        Int      @id @default(autoincrement())
+  path      String // "/book", "/book/single", …
+  referrer  String? // raw referring URL, null = direct
+  source    String // normalized: "direct" | "google" | "instagram.com" | utm_source
+  medium    String? // "organic" | "referral" | "social" | utm_medium
+  campaign  String? // utm_campaign
+  device    String // desktop | mobile | tablet
+  country   String? // ISO-2 from the edge, when the host provides it
+  visitor   String // daily-rotating hash, unique-visitor counting only
+  date      DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([source])
+  @@index([visitor])
+}

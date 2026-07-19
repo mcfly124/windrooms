@@ -37,7 +37,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     sections[0].items.push({ href: "/inbox", label: "Inbox", icon: "mail", badge: unread });
     sections.push({
       label: "Insights",
-      items: [{ href: "/stats", label: "Statistics", icon: "chart" }],
+      items: [
+        { href: "/stats", label: "Statistics", icon: "chart" },
+        { href: "/traffic", label: "Traffic", icon: "trend" },
+      ],
     });
     sections.push({
       label: "Admin",
