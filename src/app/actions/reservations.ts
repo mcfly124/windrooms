@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { chargeCredits, refundReservation } from "@/lib/credits";
 import { nightsBetween, parseYmd } from "@/lib/dates";
+import { notifyStatusChange } from "@/lib/notify";
 import type { CompanionPayment, ReservationSource, ReservationStatus } from "@prisma/client";
 
 export type ReservationInput = {
@@ -79,6 +80,7 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
     const room = await prisma.room.findUnique({ where: { id: input.roomId } });
     if (!room || !room.active) return { ok: false, error: "Room not found" };
 
+    let previousStatus: ReservationStatus | null = null;
     const id = await prisma.$transaction(async (tx) => {
       // Overlap check: only CONFIRMED reservations physically occupy a room
       if (input.status === "CONFIRMED") {
@@ -124,6 +126,7 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
         const old = await tx.reservation.findUnique({ where: { id: input.id } });
         if (!old) throw new Error("Reservation not found");
         oldClientId = old.clientId;
+        previousStatus = old.status;
         await tx.reservation.update({ where: { id: input.id }, data });
         reservationId = input.id;
       } else {
@@ -158,8 +161,12 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
       id,
       `Room ${room.name}, ${input.checkIn} → ${input.checkOut}, status ${input.status}`
     );
+    // Outside the transaction: the guest email and inbox row must never be able
+    // to roll back a saved reservation.
+    await notifyStatusChange(id, previousStatus, input.status);
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
+    revalidatePath("/inbox");
     return { ok: true, id };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unexpected error";
@@ -171,17 +178,20 @@ export async function saveReservation(input: ReservationInput): Promise<ActionRe
 export async function cancelReservation(id: number): Promise<ActionResult> {
   try {
     const session = await requireRole("ADMIN", "SUPERADMIN");
-    await prisma.$transaction(async (tx) => {
+    const previousStatus = await prisma.$transaction(async (tx) => {
       const res = await tx.reservation.findUnique({ where: { id } });
       if (!res) throw new Error("Reservation not found");
       await tx.reservation.update({ where: { id }, data: { status: "CANCELLED" } });
       if (res.clientId) {
         await refundReservation(tx, id, res.clientId, session.user.id, "Refund on cancellation");
       }
+      return res.status;
     });
     await audit(session, "reservation.cancel", "Reservation", id);
+    await notifyStatusChange(id, previousStatus, "CANCELLED");
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
+    revalidatePath("/inbox");
     return { ok: true, id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unexpected error" };

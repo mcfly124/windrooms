@@ -122,6 +122,110 @@ export function bookingCancelledEmail(b: { reference: string; guestName: string 
   };
 }
 
+/** Guest-facing: their stay is now waiting on a free room / credits. */
+export function reservationStandbyEmail(b: {
+  guestName: string;
+  reference: string;
+  roomName: string;
+  locationName: string;
+  checkIn: string;
+  checkOut: string;
+  decisionBy: string;
+}): { subject: string; html: string } {
+  return {
+    subject: `Your stay ${b.reference} is on standby — Flyspot Rooms`,
+    html: wrap(`
+      <h2 style="font-size:18px;margin:0 0 6px">Hi ${b.guestName}, your stay is on standby</h2>
+      <p style="font-size:14px;color:#64748b;margin:0 0 16px">We're holding your dates at Flyspot ${b.locationName} but haven't confirmed a room yet. You'll hear from us by <b>${b.decisionBy}</b> at the latest.</p>
+      <table style="width:100%;border-collapse:collapse">
+        ${row("Reference", b.reference)}
+        ${row("Location", `Flyspot ${b.locationName}`)}
+        ${row("Check-in", b.checkIn)}
+        ${row("Check-out", b.checkOut)}
+      </table>
+      <p style="font-size:13px;color:#64748b;margin-top:16px">Nothing to do for now — we'll email you as soon as it's confirmed. Reply to this email if your plans change.</p>
+    `),
+  };
+}
+
+/** Guest-facing: standby resolved into a real room. */
+export function reservationConfirmedEmail(b: {
+  guestName: string;
+  reference: string;
+  roomName: string;
+  locationName: string;
+  checkIn: string;
+  checkOut: string;
+  checkInTime: string;
+  checkOutTime: string;
+}): { subject: string; html: string } {
+  return {
+    subject: `Confirmed — your room at Flyspot ${b.locationName} (${b.reference})`,
+    html: wrap(`
+      <h2 style="font-size:18px;margin:0 0 6px">Good news, ${b.guestName} — you're confirmed</h2>
+      <p style="font-size:14px;color:#64748b;margin:0 0 16px">A room came free and your stay is booked.</p>
+      <table style="width:100%;border-collapse:collapse">
+        ${row("Reference", b.reference)}
+        ${row("Room", `${b.roomName} · Flyspot ${b.locationName}`)}
+        ${row("Check-in", `${b.checkIn} · from ${b.checkInTime}`)}
+        ${row("Check-out", `${b.checkOut} · by ${b.checkOutTime}`)}
+      </table>
+      <p style="font-size:13px;color:#64748b;margin-top:16px">Your door code arrives by email before check-in — no reception needed.</p>
+    `),
+  };
+}
+
+/** Guest-facing: no room at Flyspot, we booked a partner hotel instead. */
+export function reservationOverflowEmail(b: {
+  guestName: string;
+  reference: string;
+  locationName: string;
+  checkIn: string;
+  checkOut: string;
+  hotel?: string | null;
+}): { subject: string; html: string } {
+  return {
+    subject: `Your stay ${b.reference} — a room at ${b.hotel ?? "a partner hotel"}`,
+    html: wrap(`
+      <h2 style="font-size:18px;margin:0 0 6px">Hi ${b.guestName}, we've booked you nearby</h2>
+      <p style="font-size:14px;color:#64748b;margin:0 0 16px">Flyspot ${b.locationName} was full for your dates, so your stay is at <b>${b.hotel ?? "a partner hotel"}</b> — covered by us, nothing extra to pay for the room.</p>
+      <table style="width:100%;border-collapse:collapse">
+        ${row("Reference", b.reference)}
+        ${row("Check-in", b.checkIn)}
+        ${row("Check-out", b.checkOut)}
+      </table>
+      <p style="font-size:13px;color:#64748b;margin-top:16px">We'll follow up with the hotel details. Reply to this email with any questions.</p>
+    `),
+  };
+}
+
+/** Admin-facing: a standby stay is approaching its decision deadline. */
+export function standbyReminderEmail(b: {
+  guestName: string;
+  reference: string;
+  roomName: string;
+  locationName: string;
+  checkIn: string;
+  daysLeft: number;
+  calendarUrl: string;
+}): { subject: string; html: string } {
+  const urgent = b.daysLeft <= 7;
+  return {
+    subject: `${urgent ? "Action needed" : "Reminder"}: standby ${b.reference} · ${b.daysLeft} days to check-in`,
+    html: wrap(`
+      <h2 style="font-size:18px;margin:0 0 6px">Standby needs a decision</h2>
+      <p style="font-size:14px;color:#64748b;margin:0 0 16px">${b.guestName} is on standby with check-in in <b>${b.daysLeft} days</b>${urgent ? " — this is the deadline, confirm the room or move them to a partner hotel today." : "."}</p>
+      <table style="width:100%;border-collapse:collapse">
+        ${row("Reference", b.reference)}
+        ${row("Guest", b.guestName)}
+        ${row("Room", `${b.roomName} · Flyspot ${b.locationName}`)}
+        ${row("Check-in", b.checkIn)}
+      </table>
+      <a href="${b.calendarUrl}" style="display:block;background:${urgent ? "#dc2626" : "#2563eb"};color:#fff;text-decoration:none;text-align:center;border-radius:10px;padding:12px;font-size:14px;font-weight:600;margin-top:18px">Resolve in the calendar</a>
+    `),
+  };
+}
+
 export function userInviteEmail(u: {
   name: string;
   role: string;

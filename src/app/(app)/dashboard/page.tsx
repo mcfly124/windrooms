@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { normalizeLang, t } from "@/lib/i18n";
 import { getSession, allowedLocationIds } from "@/lib/auth";
 import { addDays, parseYmd, todayYmd, ymd } from "@/lib/dates";
+import { STANDBY_DECISION_DAYS, daysUntil } from "@/lib/standby";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,12 @@ export default async function DashboardPage() {
       include: { room: { include: { location: true } }, client: true },
       orderBy: { roomId: "asc" },
     }),
+    // Two weeks out, plus anything already past its deadline — those are the
+    // ones that must not quietly fall off the list.
     prisma.reservation.findMany({
       where: {
         status: "STANDBY",
-        checkIn: { gte: parseYmd(today), lte: parseYmd(addDays(today, 7)) },
+        checkIn: { lte: parseYmd(addDays(today, 14)) },
         ...locFilter,
       },
       include: { room: { include: { location: true } }, client: true },
@@ -52,6 +55,16 @@ export default async function DashboardPage() {
   ]);
 
   const who = (r: (typeof arrivals)[number]) => r.client?.name ?? r.guestName ?? "—";
+
+  // Inside the decision window (or past it) = priority: red, and first in the
+  // list whatever the check-in order says.
+  const standbyRanked = standby
+    .map((r) => {
+      const days = daysUntil(today, ymd(r.checkIn));
+      return { r, days, urgent: days <= STANDBY_DECISION_DAYS };
+    })
+    .sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.days - b.days);
+  const urgentCount = standbyRanked.filter((s) => s.urgent).length;
 
   return (
     <div className="space-y-6">
@@ -95,19 +108,31 @@ export default async function DashboardPage() {
             <Row key={r.id} main={who(r)} sub={`${r.room.location.name} · ${r.room.name} · by ${r.checkOutTime}`} />
           ))}
         </Card>
-        <Card index="03" title={`${t(lang, "standby_due")} · ${standby.length}`} accent={standby.length > 0}>
+        <Card
+          index="03"
+          title={`${t(lang, "standby_due")} · ${standby.length}`}
+          accent={standby.length > 0}
+          urgent={urgentCount > 0}
+        >
           {standby.length === 0 && <Empty text="Nothing to resolve" />}
-          {standby.map((r) => (
+          {urgentCount > 0 && (
+            <div className="rounded-lg bg-bad-soft text-bad text-xs font-medium px-3 py-2">
+              {urgentCount} need{urgentCount === 1 ? "s" : ""} a decision now
+            </div>
+          )}
+          {standbyRanked.map(({ r, days, urgent }) => (
             <Row
               key={r.id}
               main={who(r)}
               sub={`${r.room.location.name} · ${r.room.name} · check-in ${ymd(r.checkIn)}`}
+              tag={days < 0 ? "past due" : days === 0 ? "today" : `${days}d`}
+              urgent={urgent}
             />
           ))}
           {standby.length > 0 && (
             <p className="text-xs text-mut mt-2">
-              Standby guests with check-in within 7 days need a decision — confirm or send to the partner hotel in
-              the{" "}
+              Standby guests inside {STANDBY_DECISION_DAYS} days of check-in need a decision — confirm or send to
+              the partner hotel in the{" "}
               <Link href="/calendar" className="text-acc underline">
                 calendar
               </Link>
@@ -125,14 +150,18 @@ function Card({
   title,
   children,
   accent,
+  urgent,
 }: {
   index: string;
   title: string;
   children: React.ReactNode;
   accent?: boolean;
+  urgent?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl bg-card border p-4 ${accent ? "border-warn" : "border-line"}`}>
+    <div
+      className={`rounded-2xl bg-card border p-4 ${urgent ? "border-bad" : accent ? "border-warn" : "border-line"}`}
+    >
       <h2 className="text-sm font-medium mb-3">
         <span className="label-mono mr-2">{index}</span>
         {title}
@@ -142,11 +171,32 @@ function Card({
   );
 }
 
-function Row({ main, sub }: { main: string; sub: string }) {
+function Row({
+  main,
+  sub,
+  tag,
+  urgent,
+}: {
+  main: string;
+  sub: string;
+  tag?: string;
+  urgent?: boolean;
+}) {
   return (
-    <div className="rounded-lg bg-hovr px-3 py-2">
-      <div className="text-sm font-medium">{main}</div>
-      <div className="text-xs text-mut font-mono">{sub}</div>
+    <div className={`rounded-lg px-3 py-2 ${urgent ? "bg-bad-soft" : "bg-hovr"}`}>
+      <div className="flex items-center gap-2">
+        <div className={`text-sm font-medium ${urgent ? "text-bad" : ""}`}>{main}</div>
+        {tag && (
+          <span
+            className={`ml-auto label-mono px-1.5 py-0.5 rounded ${
+              urgent ? "bg-bad text-white" : "bg-hovr text-mut"
+            }`}
+          >
+            {tag}
+          </span>
+        )}
+      </div>
+      <div className={`text-xs font-mono ${urgent ? "text-bad" : "text-mut"}`}>{sub}</div>
     </div>
   );
 }

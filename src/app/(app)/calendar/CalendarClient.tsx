@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveReservation, cancelReservation, findAlternatives, saveSplitStay, type Alternatives, type ReservationInput } from "@/app/actions/reservations";
 import { addDays, eachDay, nightsBetween, todayYmd } from "@/lib/dates";
 import { bookingRef } from "@/lib/ref";
+import { STANDBY_DECISION_DAYS, daysUntil } from "@/lib/standby";
 import DateRangePicker from "@/components/DateRangePicker";
 import TimeSelect from "@/components/TimeSelect";
 import type { CompanionPayment, ReservationSource, ReservationStatus, RoomType } from "@prisma/client";
@@ -40,6 +41,17 @@ const CHIP: Record<ReservationStatus, string> = {
   HOTEL_OVERFLOW: "bg-purp-soft text-purp",
   CANCELLED: "bg-hovr text-faint",
 };
+
+/**
+ * Standby inside the decision window is red, not amber — it has to look
+ * different from a standby that still has weeks to run.
+ */
+function chipClass(status: ReservationStatus, checkIn: string): string {
+  if (status === "STANDBY" && daysUntil(todayYmd(), checkIn) <= STANDBY_DECISION_DAYS) {
+    return "bg-bad-soft text-bad font-semibold";
+  }
+  return CHIP[status];
+}
 
 function addMonths(anchor: string, delta: number): string {
   const d = new Date(`${anchor.slice(0, 8)}01T00:00:00Z`);
@@ -184,6 +196,7 @@ export default function CalendarClient(props: {
       <div className="flex flex-wrap gap-4 text-xs text-mut">
         <Legend className="bg-acc-soft" label="Confirmed" />
         <Legend className="bg-warn-soft" label="Standby" />
+        <Legend className="bg-bad-soft" label={`Standby · decide within ${STANDBY_DECISION_DAYS} days`} />
         <Legend className="bg-purp-soft" label="Hotel overflow" />
       </div>
 
@@ -273,7 +286,7 @@ function MonthGrid({
                         e.stopPropagation();
                         onOpen(r);
                       }}
-                      className={`w-full truncate rounded px-1.5 py-0.5 text-left font-mono text-[11px] ${CHIP[r.status]}`}
+                      className={`w-full truncate rounded px-1.5 py-0.5 text-left font-mono text-[11px] ${chipClass(r.status, r.checkIn)}`}
                       title={`${r.roomName} · ${r.clientName ?? r.guestName ?? ""} · ${r.checkIn} → ${r.checkOut}`}
                     >
                       {r.checkIn === day ? "▸ " : ""}{r.roomName} {r.clientName ?? r.guestName ?? "?"}
@@ -350,7 +363,7 @@ function WeekGrid({
                   <td key={d} colSpan={span} className="border-l border-b border-line p-1 align-middle">
                     <button
                       onClick={() => onOpen(res)}
-                      className={`w-full truncate rounded-md px-2 py-1.5 text-left font-mono text-xs ${CHIP[res.status]}`}
+                      className={`w-full truncate rounded-md px-2 py-1.5 text-left font-mono text-xs ${chipClass(res.status, res.checkIn)}`}
                       title={`${res.clientName ?? res.guestName ?? ""} · ${res.checkIn} → ${res.checkOut} · ${res.status}`}
                     >
                       {res.clientName ?? res.guestName ?? "?"}
@@ -796,7 +809,7 @@ function DayPanel({
             className="w-full text-left rounded-xl border border-line hover:bg-hovr p-2.5"
           >
             <div className="flex items-center gap-2">
-              <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${CHIP[r.status]}`}>{r.roomName}</span>
+              <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${chipClass(r.status, r.checkIn)}`}>{r.roomName}</span>
               <span className="text-sm font-medium truncate">{r.clientName ?? r.guestName ?? "?"}</span>
               {r.source === "PUBLIC" && <span className="label-mono ml-auto">public</span>}
             </div>
