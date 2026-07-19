@@ -89,9 +89,7 @@ export async function publicAvailableRooms(locationSlug: string, checkIn: string
   return { location, rooms, anyBlockedByWindow };
 }
 
-export function bookingRef(reservationId: number): string {
-  return `FR-${String(reservationId).padStart(5, "0")}`;
-}
+export { bookingRef } from "./ref";
 
 /** Unguessable confirmation token so booking pages can't be enumerated. */
 export function bookingSig(reservationId: number): string {

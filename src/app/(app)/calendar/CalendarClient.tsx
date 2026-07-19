@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveReservation, cancelReservation, findAlternatives, saveSplitStay, type Alternatives, type ReservationInput } from "@/app/actions/reservations";
 import { addDays, eachDay, nightsBetween, todayYmd } from "@/lib/dates";
+import { bookingRef } from "@/lib/ref";
 import DateRangePicker from "@/components/DateRangePicker";
 import TimeSelect from "@/components/TimeSelect";
 import type { CompanionPayment, ReservationSource, ReservationStatus, RoomType } from "@prisma/client";
@@ -391,6 +392,30 @@ function Legend({ className, label }: { className: string; label: string }) {
   );
 }
 
+/** The code the guest quotes on the phone or in /book/manage. Click to copy. */
+function RefBadge({ id }: { id: number }) {
+  const [copied, setCopied] = useState(false);
+  const ref = bookingRef(id);
+  return (
+    <button
+      type="button"
+      title="Confirmation code — click to copy"
+      onClick={() => {
+        navigator.clipboard?.writeText(ref).then(
+          () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+          },
+          () => {}
+        );
+      }}
+      className="font-mono text-xs px-2 py-1 rounded-lg bg-acc-softer text-acc hover:bg-acc-soft"
+    >
+      {copied ? "copied" : ref}
+    </button>
+  );
+}
+
 function ReservationModal({
   initial,
   locationId,
@@ -507,10 +532,13 @@ function ReservationModal({
         className="w-full max-w-lg rounded-2xl bg-card border border-line shadow-xl p-5 space-y-3 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-semibold">
-          {initial.id ? `Reservation #${initial.id}` : "New reservation"}
-          <span className="text-faint font-normal text-sm ml-2">{nights > 0 ? `${nights} night(s)` : ""}</span>
-        </h2>
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <h2 className="font-semibold">
+            {initial.id ? `Reservation #${initial.id}` : "New reservation"}
+            <span className="text-faint font-normal text-sm ml-2">{nights > 0 ? `${nights} night(s)` : ""}</span>
+          </h2>
+          {initial.id && <RefBadge id={initial.id} />}
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
